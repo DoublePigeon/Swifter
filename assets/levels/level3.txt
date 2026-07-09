@@ -1,0 +1,7 @@
+# Swifter Level 3 —— BOSS降临
+1.0   Shooter   200   -50   None
+1.0   Shooter   600   -50   None
+3.0   Normal    300   -50   None
+3.0   Normal    500   -50   None
+5.0   Shooter   400   -50   PowerUp
+8.0   Boss      400   -120  None  Spread

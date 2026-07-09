@@ -1,0 +1,15 @@
+# Swifter Level 1 —— 新手训练
+# 格式: 时间(秒)  敌机类型   出生X  出生Y  道具   [弹幕模式]
+# 顶视图：窗口 800x600，敌机从顶部(Y<0)进入。
+2.0   Normal    200   -50   None
+2.6   Normal    400   -50   None
+3.2   Normal    600   -50   None
+5.0   Shooter   300   -50   Heal
+6.5   Normal    150   -50   None
+6.5   Normal    650   -50   None
+8.0   Normal    250   -50   None
+8.0   Normal    550   -50   None
+9.0   Shooter   500   -50   PowerUp
+11.0  Normal    350   -50   None
+11.0  Normal    450   -50   None
+15.0  Boss      400   -120  None  Circle

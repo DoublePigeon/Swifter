@@ -1,0 +1,12 @@
+# Swifter Level 2 —— 弹幕洗礼
+2.0   Shooter   150   -50   None
+2.0   Shooter   650   -50   None
+4.0   Normal    250   -50   None
+4.0   Normal    550   -50   None
+6.0   Shooter   400   -50   PowerUp
+8.0   Normal    200   -50   None
+8.0   Normal    600   -50   None
+9.0   Shooter   300   -50   Heal
+9.0   Shooter   500   -50   None
+12.0  Normal    400   -50   Bomb
+15.0  Boss      400   -120  None  Spiral
