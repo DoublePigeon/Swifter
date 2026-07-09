@@ -1,29 +1,52 @@
-#pragma once
-
-#include <SFML/Window/Keyboard.hpp>
-#include <SFML/Window/Event.hpp>
-#include <unordered_set>
+#include "core/Input.h"
 
 // ===========================================================================
 // 输入管理：区分“按住 / 本帧按下 / 本帧抬起”，方便实现格挡、闪避等触发式操作。
 // 用法：Game::HandleEvents 中调用 HandleEvent，每帧末尾调用 Update 清理。
 // ===========================================================================
 
-class Input {
-public:
-    static Input& Instance();
+Input& Input::Instance() {
+    static Input instance;
+    return instance;
+}
 
-    void HandleEvent(const sf::Event& event);
-    void Update(); // 每帧末尾调用，清空 pressed/released
+void Input::HandleEvent(const sf::Event& event) {
+    if (const auto* keyPress = event.getIf<sf::Event::KeyPressed>()) {
+        sf::Keyboard::Key key = keyPress->code;
 
-    bool IsKeyHeld(sf::Keyboard::Key key) const;     // 持续按住
-    bool IsKeyPressed(sf::Keyboard::Key key) const;  // 本帧刚按下
-    bool IsKeyReleased(sf::Keyboard::Key key) const; // 本帧刚抬起
+        if (key != sf::Keyboard::Key::Unknown) {
+            int keyCode = static_cast<int>(key);
+            if (heldKeys.find(keyCode) == heldKeys.end()) {
+                pressedKeys.insert(keyCode);
+            }
+            heldKeys.insert(keyCode);
+        }
+    }else if (const auto* keyRelease = event.getIf<sf::Event::KeyReleased>()) {
+        sf::Keyboard::Key key = keyRelease->code;
 
-private:
-    Input() = default;
+        if (key != sf::Keyboard::Key::Unknown) {
+            int keyCode = static_cast<int>(key);
+            releasedKeys.insert(keyCode);
+            heldKeys.erase(keyCode);
+        }
+    }
+}
 
-    std::unordered_set<int> heldKeys;     // 当前按住的键
-    std::unordered_set<int> pressedKeys;  // 本帧按下的键
-    std::unordered_set<int> releasedKeys; // 本帧抬起的键
-};
+void Input::Update() {
+    pressedKeys.clear();
+    releasedKeys.clear();
+} // 每帧末尾调用，清空 pressed/released
+
+bool Input::IsKeyHeld(sf::Keyboard::Key key) const {
+    return heldKeys.count(static_cast<int>(key)) > 0;
+}   // 持续按住
+
+bool Input::IsKeyPressed(sf::Keyboard::Key key) const {
+    return pressedKeys.count(static_cast<int>(key)) > 0;
+} // 本帧刚按下
+
+bool Input::IsKeyReleased(sf::Keyboard::Key key) const {
+    return releasedKeys.count(static_cast<int>(key)) > 0;
+} // 本帧刚抬起
+
+Input::Input() = default;
