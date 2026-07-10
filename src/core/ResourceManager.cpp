@@ -24,8 +24,3 @@ const sf::SoundBuffer& ResourceManager::GetSoundBuffer(const std::string& path) 
 void ResourceManager::Clear() {
 
 } // 切关或退出时清空缓存
-
-
-ResourceManager::ResourceManager() = default;
-ResourceManager::ResourceManager(const ResourceManager&) = delete;
-ResourceManager& ResourceManager::operator=(const ResourceManager&) = delete;

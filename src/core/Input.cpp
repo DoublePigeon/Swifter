@@ -48,5 +48,3 @@ bool Input::IsKeyPressed(sf::Keyboard::Key key) const {
 bool Input::IsKeyReleased(sf::Keyboard::Key key) const {
     return releasedKeys.count(static_cast<int>(key)) > 0;
 } // 本帧刚抬起
-
-Input::Input() = default;

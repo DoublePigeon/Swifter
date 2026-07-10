@@ -1,6 +1,4 @@
-#pragma once
-
-#include <SFML/System/Clock.hpp>
+#include <core/Time.h>
 
 // ===========================================================================
 // 时间管理：提供 deltaTime、总时间、全局时间缩放以及子弹时间因子。

@@ -21,6 +21,7 @@
  bool Game::Init(int width, int height, const std::string& title) {
 
  }
+ 
  void Game::Run() {
 
  }

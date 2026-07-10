@@ -1,10 +1,4 @@
-#pragma once
-
-#include <SFML/Graphics/Sprite.hpp>
-#include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/System/Vector2.hpp>
-
-#include "core/Types.h"
+#include <core/GameObject.h>
 
 // ===========================================================================
 // GameObject：所有屏幕实体的基类，提供类似 Unity MonoBehaviour 的生命周期。

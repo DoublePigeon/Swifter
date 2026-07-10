@@ -11,6 +11,7 @@
 // sfx 通过 ResourceManager 提供的 SoundBuffer 播放，用 list 维护活跃实例
 // 以保证 SoundBuffer 生命周期；Update 清理已播放完的 sfx。
 // 支持音量、暂停/恢复 BGM。
+// 音效在assets/music和assets/sounds里
 // ===========================================================================
 
 class AudioManager {

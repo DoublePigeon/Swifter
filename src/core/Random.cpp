@@ -6,7 +6,7 @@
 
 namespace rng {
     // 用固定种子初始化（0 表示用随机设备）
-    void Seed(unsigned int seed = 0) {
+    void Seed(unsigned int seed) {
 
     }
 
