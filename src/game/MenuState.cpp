@@ -1,32 +1,104 @@
-#pragma once
+#include "game/MenuState.h"
+#include "game/PlayState.h"
+#include "game/StateMachine.h"
+#include "core/Input.h"
+#include "core/GameContext.h"
+#include "core/ResourceManager.h"
 
-#include <vector>
-#include <string>
-
-#include <SFML/Graphics/Text.hpp>
-
-#include "game/GameState.h"
+#include <SFML/Window/Keyboard.hpp>
 
 // ===========================================================================
-// MenuState：主菜单。
-// 选项：开始游戏 / 选择关卡 / 退出；上下选择，回车确认。
+// MenuState：主菜单，标题 + 三个选项，上下选择回车确认。
 // ===========================================================================
 
-class MenuState : public GameState {
-public:
-    StateID GetID() const override { return StateID::Menu; }
+namespace {
+    sf::Font& DummyFont() {
+        static sf::Font font;
+        return font;
+    }
+}
 
-    void OnEnter(GameContext* ctx) override;
-    void OnExit() override;
-    void OnUpdate(float dt) override;
-    void OnRender(sf::RenderTarget& target) override;
+MenuState::MenuState()
+    : titleText(DummyFont()) {
+}
 
-private:
-    void UpdateSelection(int delta);
+void MenuState::OnEnter(GameContext* ctx) {
+    context = ctx;
 
-    std::vector<std::string> items = { "开始游戏", "选择关卡", "退出" };
-    int selected = 0;
+    // 尝试通过 ResourceManager 获取字体（暂为桩实现，后续由别人填充）
+    const sf::Font& font = context->resources->GetFont("assets/fonts/default.ttf");
 
-    sf::Text titleText;
-    std::vector<sf::Text> itemTexts;
-};
+    // 标题
+    titleText.setFont(font);
+    titleText.setString("Swifter");
+    titleText.setCharacterSize(64);
+    titleText.setStyle(sf::Text::Bold);
+    titleText.setFillColor(sf::Color::White);
+    sf::FloatRect titleBounds = titleText.getLocalBounds();
+    titleText.setOrigin(titleBounds.width / 2.f, titleBounds.height / 2.f);
+    titleText.setPosition({ 400.f, 150.f });
+
+    // 菜单项
+    itemTexts.resize(items.size());
+    for (size_t i = 0; i < items.size(); ++i) {
+        itemTexts[i].setFont(font);
+        itemTexts[i].setString(items[i]);
+        itemTexts[i].setCharacterSize(36);
+        itemTexts[i].setFillColor(sf::Color(180, 180, 180));
+        sf::FloatRect b = itemTexts[i].getLocalBounds();
+        itemTexts[i].setOrigin(b.width / 2.f, b.height / 2.f);
+        itemTexts[i].setPosition({ 400.f, 300.f + i * 60.f });
+    }
+
+    // 高亮首项
+    selected = 0;
+    itemTexts[selected].setFillColor(sf::Color::Yellow);
+}
+
+void MenuState::OnExit() {
+    // 无需特殊清理
+}
+
+void MenuState::OnUpdate(float dt) {
+    auto& input = Input::Instance();
+
+    if (input.IsKeyPressed(sf::Keyboard::Key::Up) ||
+        input.IsKeyPressed(sf::Keyboard::Key::W)) {
+        UpdateSelection(-1);
+    }
+
+    if (input.IsKeyPressed(sf::Keyboard::Key::Down) ||
+        input.IsKeyPressed(sf::Keyboard::Key::S)) {
+        UpdateSelection(1);
+    }
+
+    if (input.IsKeyPressed(sf::Keyboard::Key::Enter) ||
+        input.IsKeyPressed(sf::Keyboard::Key::Space)) {
+        switch (selected) {
+        case 0: // 开始游戏
+            context->stateMachine->ChangeState(
+                std::make_unique<PlayState>("assets/levels/level1.txt"));
+            break;
+        case 1: // 选择关卡 → 暂留空，也先进 PlayState 作为桩
+            context->stateMachine->ChangeState(
+                std::make_unique<PlayState>("assets/levels/level1.txt"));
+            break;
+        case 2: // 退出
+            context->window->close();
+            break;
+        }
+    }
+}
+
+void MenuState::OnRender(sf::RenderTarget& target) {
+    target.draw(titleText);
+    for (auto& t : itemTexts) {
+        target.draw(t);
+    }
+}
+
+void MenuState::UpdateSelection(int delta) {
+    itemTexts[selected].setFillColor(sf::Color(180, 180, 180));
+    selected = (selected + delta + static_cast<int>(items.size())) % static_cast<int>(items.size());
+    itemTexts[selected].setFillColor(sf::Color::Yellow);
+}

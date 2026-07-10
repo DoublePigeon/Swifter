@@ -1,30 +1,34 @@
-#pragma once
+#include "managers/ScoreManager.h"
+#include <fstream>
 
-#include <string>
+ScoreManager::ScoreManager() = default;
 
-// ===========================================================================
-// ScoreManager：管理本局分数与历史最高分，支持持久化。
-// 重启游戏后通过 LoadHighScore 重新加载历史最高分。
-// ===========================================================================
+void ScoreManager::LoadHighScore(const std::string& filename) {
+    saveFile = filename;
+    std::ifstream in(filename);
+    if (in.is_open()) {
+        in >> highScore;
+    }
+}
 
-class ScoreManager {
-public:
-    ScoreManager();
+void ScoreManager::SaveHighScore(const std::string& filename) {
+    std::ofstream out(filename);
+    if (out.is_open()) {
+        out << highScore;
+    }
+}
 
-    void LoadHighScore(const std::string& filename = "score.dat");
-    void SaveHighScore(const std::string& filename = "score.dat");
+void ScoreManager::AddScore(int amount) {
+    score += amount;
+}
 
-    int  GetScore() const { return score; }
-    int  GetHighScore() const { return highScore; }
+void ScoreManager::ResetScore() {
+    score = 0;
+}
 
-    void AddScore(int amount);
-    void ResetScore();
-
-    // 本局结束时调用：若当前分 > 最高分则更新并保存
-    void CommitHighScore();
-
-private:
-    int  score = 0;
-    int  highScore = 0;
-    std::string saveFile;
-};
+void ScoreManager::CommitHighScore() {
+    if (score > highScore) {
+        highScore = score;
+        SaveHighScore(saveFile);
+    }
+}

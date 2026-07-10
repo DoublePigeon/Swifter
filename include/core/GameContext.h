@@ -7,6 +7,7 @@
 // 所有对象通过 GameObject::context 访问各管理器，避免单例满天飞。
 // ===========================================================================
 
+class StateMachine;
 class ObjectManager;
 class ResourceManager;
 class AudioManager;
@@ -20,10 +21,11 @@ namespace sf { class RenderWindow; }
 
 struct GameContext {
     // —— 共享（由 Game 持有）——
-    sf::RenderWindow* window    = nullptr;
-    ResourceManager*  resources = nullptr;
-    AudioManager*     audio     = nullptr;
-    ScoreManager*     score     = nullptr;
+    sf::RenderWindow* window       = nullptr;
+    ResourceManager*  resources    = nullptr;
+    AudioManager*     audio        = nullptr;
+    ScoreManager*     score        = nullptr;
+    StateMachine*     stateMachine = nullptr;
 
     // —— 局内（由 PlayState 持有）——
     ObjectManager*    objects   = nullptr;

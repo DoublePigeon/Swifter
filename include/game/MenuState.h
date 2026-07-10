@@ -14,6 +14,8 @@
 
 class MenuState : public GameState {
 public:
+    MenuState();
+
     StateID GetID() const override { return StateID::Menu; }
 
     void OnEnter(GameContext* ctx) override;

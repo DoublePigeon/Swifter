@@ -1,45 +1,90 @@
 #include "core/Game.h"
+#include "core/Input.h"
+#include "core/Time.h"
+#include "core/ResourceManager.h"
+#include "managers/AudioManager.h"
+#include "managers/ScoreManager.h"
+#include "game/StateMachine.h"
+#include "game/MenuState.h"
 
 // ===========================================================================
-// Game：游戏顶层，拥有主循环与所有“共享”资源/管理器。
-//   - 窗口 (RenderWindow)
-//   - 状态机 (StateMachine)
-//   - 分数管理 (ScoreManager) —— 跨局持久
-//   - 资源/音频 —— 通过单例访问，写入 context
-// 主循环：事件 -> 更新 -> 渲染，帧刷新。
-// 退出时保存最高分。
+// Game：核心骨架，拥有窗口、状态机、分数管理器，驱动主循环。
 // ===========================================================================
 
+Game::Game() = default;
 
- Game::Game() {
+// 析构须在 StateMachine / ScoreManager 完整类型可见后定义（unique_ptr 要求）
+Game::~Game() = default;
 
- }
- Game::~Game() {
+bool Game::Init(int width, int height, const std::string& title) {
+    // 1. 创建窗口
+    window = std::make_unique<sf::RenderWindow>(
+        sf::VideoMode({ static_cast<unsigned>(width), static_cast<unsigned>(height) }),
+        title);
+    window->setFramerateLimit(60);
 
- }
+    // 2. 创建跨局持久的管理器
+    scoreManager = std::make_unique<ScoreManager>();
+    scoreManager->LoadHighScore();
 
- bool Game::Init(int width, int height, const std::string& title) {
+    stateMachine = std::make_unique<StateMachine>();
 
- }
- 
- void Game::Run() {
+    // 3. 填充共享上下文
+    BuildContext();
 
- }
+    // 4. 给状态机设置上下文
+    stateMachine->SetContext(&context);
 
- void Game::Quit() {
+    // 5. 启动菜单
+    stateMachine->ChangeState(std::make_unique<MenuState>());
 
- }
+    running = true;
+    return true;
+}
 
- void Game::HandleEvents() {
+void Game::Run() {
+    Time::Instance().Reset();
 
- }   // 轮询 SFML 事件 -> Input / 窗口关闭
- void Game::Update(float dt) {
+    while (running) {
+        HandleEvents();
+        Time::Instance().Update();
+        float dt = Time::Instance().DeltaTime();
+        Update(dt);
+        Render();
+    }
+}
 
- } // 状态机更新 + 输入清理
- void Game::Render() {
+void Game::Quit() {
+    running = false;
+}
 
- }         // 状态机渲染 + 显示
+// ---- 私有方法 ----
 
- void Game::BuildContext() {
-    
- }   // 填充 context 的共享部分
+void Game::HandleEvents() {
+    while (auto event = window->pollEvent()) {
+        Input::Instance().HandleEvent(*event);
+
+        if (event->is<sf::Event::Closed>()) {
+            Quit();
+        }
+    }
+}
+
+void Game::Update(float dt) {
+    stateMachine->Update(dt);
+    Input::Instance().Update(); // 清理单帧按键状态
+}
+
+void Game::Render() {
+    window->clear(sf::Color(20, 20, 40)); // 深蓝黑背景
+    stateMachine->Render(*window);
+    window->display();
+}
+
+void Game::BuildContext() {
+    context.window       = window.get();
+    context.resources    = &ResourceManager::Instance();
+    context.audio        = &AudioManager::Instance();
+    context.score        = scoreManager.get();
+    context.stateMachine = stateMachine.get();
+}

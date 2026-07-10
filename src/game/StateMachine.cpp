@@ -1,35 +1,47 @@
-#pragma once
+﻿#include "game/StateMachine.h"
+#include "game/GameState.h"
+#include "core/GameContext.h"
+#include <cassert>
 
-#include <memory>
-#include <stack>
+StateMachine::StateMachine() = default;
 
-#include <SFML/Graphics/RenderTarget.hpp>
+void StateMachine::SetContext(GameContext* ctx) {
+    context = ctx;
+}
 
-struct GameContext;
-class GameState;
+void StateMachine::ChangeState(std::unique_ptr<GameState> state) {
+    if (!states.empty()) {
+        states.top()->OnExit();
+        states.pop();
+    }
+    states.push(std::move(state));
+    states.top()->OnEnter(context);
+}
 
-// ===========================================================================
-// StateMachine：状态栈式状态机。
-// ChangeState 替换栈顶（菜单 -> 关卡选择 -> 游戏等）；
-// PushState/PopState 用于叠加暂停层（不销毁下层 PlayState）。
-// ===========================================================================
+void StateMachine::PushState(std::unique_ptr<GameState> state) {
+    states.push(std::move(state));
+    states.top()->OnEnter(context);
+}
 
-class StateMachine {
-public:
-    StateMachine();
-    void SetContext(GameContext* ctx);
+void StateMachine::PopState() {
+    if (!states.empty()) {
+        states.top()->OnExit();
+        states.pop();
+    }
+}
 
-    void ChangeState(std::unique_ptr<GameState> state); // 替换栈顶
-    void PushState(std::unique_ptr<GameState> state);    // 叠加（暂停）
-    void PopState();                                     // 弹出叠加层
+void StateMachine::Update(float dt) {
+    if (!states.empty()) {
+        states.top()->OnUpdate(dt);
+    }
+}
 
-    void Update(float dt);
-    void Render(sf::RenderTarget& target);
+void StateMachine::Render(sf::RenderTarget& target) {
+    if (!states.empty()) {
+        states.top()->OnRender(target);
+    }
+}
 
-    GameState* Current() const;
-    bool IsEmpty() const { return states.empty(); }
-
-private:
-    GameContext* context = nullptr;
-    std::stack<std::unique_ptr<GameState>> states;
-};
+GameState* StateMachine::Current() const {
+    return states.empty() ? nullptr : states.top().get();
+}

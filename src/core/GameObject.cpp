@@ -1,60 +1,34 @@
 #include <core/GameObject.h>
+#include <SFML/Graphics/Texture.hpp>
 
 // ===========================================================================
 // GameObject：所有屏幕实体的基类，提供类似 Unity MonoBehaviour 的生命周期。
-//   OnInit    —— 加入对象管理器时调用一次（Awake/Start）
-//   OnUpdate  —— 每帧逻辑（Update）
-//   OnRender  —— 每帧绘制（可选）
-//   OnDestroy —— 移除时调用一次
-// 子类必须实现 GetType() 用于类型查询。
-// 碰撞采用圆形判定，用 radius 表示判定半径。
+// 大部分 getter/setter 已在头文件中 inline 定义，此处仅实现需要逻辑的方法。
 // ===========================================================================
 
-struct GameContext;
+namespace {
+    sf::Texture& DummyTexture() {
+        static sf::Texture tex;
+        tex.resize({1u, 1u});
+        return tex;
+    }
+}
 
-class GameObject {
-public:
-    GameObject();
-    virtual ~GameObject() = default;
+GameObject::GameObject()
+    : context(nullptr)
+    , position(0.f, 0.f)
+    , rotation(0.f)
+    , radius(16.f)
+    , active(true)
+    , dead(false)
+    , sprite(DummyTexture()) {
+}
 
-    // —— 生命周期 ——
-    virtual void OnInit() {}
-    virtual void OnUpdate(float dt) {}
-    virtual void OnRender(sf::RenderTarget& target) {}
-    virtual void OnDestroy() {}
+void GameObject::SetContext(GameContext* ctx) {
+    context = ctx;
+}
 
-    // —— 类型 ——
-    virtual ObjectType GetType() const = 0;
-
-    // —— 上下文 ——
-    void          SetContext(GameContext* ctx);
-    GameContext*  GetContext() const { return context; }
-
-    // —— 变换 ——
-    const sf::Vector2f& GetPosition() const { return position; }
-    void          SetPosition(const sf::Vector2f& pos) { position = pos; }
-    void          Move(const sf::Vector2f& delta) { position += delta; }
-
-    float         GetRotation() const { return rotation; }
-    void          SetRotation(float degrees) { rotation = degrees; }
-
-    // —— 激活 / 销毁 ——
-    bool          IsActive() const { return active; }
-    void          SetActive(bool a) { active = a; }
-
-    bool          IsDead() const { return dead; }
-    void          Destroy(); // 标记待移除
-
-    // —— 碰撞 ——
-    float         GetRadius() const { return radius; }
-    void          SetRadius(float r) { radius = r; }
-
-protected:
-    GameContext*    context = nullptr;
-    sf::Vector2f    position;
-    float           rotation = 0.0f;
-    float           radius = 16.0f;   // 圆形判定半径
-    bool            active = true;
-    bool            dead = false;
-    sf::Sprite      sprite;           // 子类可自行使用
-};
+void GameObject::Destroy() {
+    dead   = true;
+    active = false;
+}
