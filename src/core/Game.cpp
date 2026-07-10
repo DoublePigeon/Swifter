@@ -18,7 +18,7 @@
 
  }
 
- bool Game::Init(int width = 800, int height = 600, const std::string& title = "Swifter") {
+ bool Game::Init(int width, int height, const std::string& title) {
 
  }
  void Game::Run() {
