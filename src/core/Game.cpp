@@ -35,7 +35,17 @@ bool Game::Init(int width, int height, const std::string& title) {
     // 4. 给状态机设置上下文
     stateMachine->SetContext(&context);
 
-    // 5. 启动菜单
+    // 5. 注册所有音效别名 -> 文件路径
+    auto& audio = AudioManager::Instance();
+    audio.RegisterSfx("shoot_small", "assets/sounds/shoot_small.ogg");
+    audio.RegisterSfx("shoot_big",   "assets/sounds/shoot_big.ogg");
+    audio.RegisterSfx("evade",       "assets/sounds/evade.ogg");
+    audio.RegisterSfx("parry",       "assets/sounds/parry.ogg");
+    audio.RegisterSfx("plane_crash", "assets/sounds/plane_crash.ogg");
+    audio.RegisterSfx("plane_hit_by","assets/sounds/plane_hit_by.ogg");
+    audio.RegisterSfx("dummy",       "assets/sounds/dummy.ogg");
+
+    // 6. 启动菜单
     stateMachine->ChangeState(std::make_unique<MenuState>());
 
     running = true;

@@ -1,88 +1,382 @@
-#pragma once
+#include "objects/Player.h"
+#include "objects/Bullet.h"
+#include "core/GameContext.h"
+#include "core/ResourceManager.h"
+#include "core/Config.h"
+#include "core/Input.h"
+#include "core/Math.h"
+#include "core/Time.h"
+#include "managers/ObjectManager.h"
+#include "managers/UIManager.h"
+#include "managers/AudioManager.h"
 
-#include <SFML/System/Vector2.hpp>
-
-#include "core/GameObject.h"
-#include "core/Types.h"
-
-class Bullet;
+#include <SFML/Window/Keyboard.hpp>
+#include <SFML/Graphics/Texture.hpp>
+#include <cmath>
+#include <limits>
 
 // ===========================================================================
 // Player：自机。
-//
-// 操作（默认）：
-//   方向键 / WASD     移动
-//   Z(或空格)         开火
-//   X                 完美格挡（极限距离触发：弹反/摧毁敌弹，获得无敌+变体攻击）
-//   Shift             完美闪避（较大距离触发：短暂无敌+子弹时间+变体攻击）
-//   C                 使用炸弹（清屏）
-//   Esc               暂停
-//
-// 创新机制核心：FindClosestEnemyBullet 找出最近敌弹，结合 WARNING_RADIUS /
-// PARRY_RADIUS 判定是否在“可触发区间”，从而区分完美/普通操作。
 // ===========================================================================
 
-class Player : public GameObject {
-public:
-    Player();
-    ~Player() override = default;
+Player::Player() {
+    radius = config::PLAYER_RADIUS;
+    health = config::PLAYER_MAX_HEALTH;
+    maxHealth = config::PLAYER_MAX_HEALTH;
+    powerLevel = 1;
+    bombCount = 3;
+    fireInterval = config::PLAYER_FIRE_INTERVAL;
+}
 
-    ObjectType GetType() const override { return ObjectType::Player; }
+void Player::OnInit() {
+    sprite.setTexture(context->resources->GetTexture("assets/images/self_plane.png"));
+    auto texSize = sprite.getTexture().getSize();
+    sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
+    position = {config::WINDOW_WIDTH / 2.0f, config::WINDOW_HEIGHT - 80.0f};
+}
 
-    void OnInit() override;
-    void OnUpdate(float dt) override;
-    void OnRender(sf::RenderTarget& target) override;
-    void OnDestroy() override {}
+void Player::OnUpdate(float dt) {
+    if (!active) return;
 
-    // —— 输入（由状态或自机内部调用）——
-    void HandleInput();
+    HandleInput();
+    UpdateTimers(dt);
+    UpdateMovement(dt);
+    UpdateBulletTime(dt);
 
-    // —— 伤害与生命 ——
-    void TakeDamage(int amount);
-    int  GetHealth() const { return health; }
-    int  GetMaxHealth() const { return maxHealth; }
-    bool IsInvincible() const { return invincibleTimer > 0.0f; }
-    bool IsPlayerDead() const { return health <= 0; }
+    // 边界限制
+    position.x = math::Clamp(position.x, radius, config::WINDOW_WIDTH - radius);
+    position.y = math::Clamp(position.y, radius, config::WINDOW_HEIGHT - radius);
 
-    // —— 火力 ——
-    int  GetPowerLevel() const { return powerLevel; }
-    void SetPowerLevel(int lv);
-    bool IsVariantAttack() const { return variantTimer > 0.0f; } // 变体攻击激活中
+    sprite.setPosition(position);
+    sprite.setRotation(sf::degrees(rotation));
+}
 
-    // —— 完美机制 ——
-    float GetParryCooldown() const { return parryCooldown; }
-    float GetDodgeCooldown() const { return dodgeCooldown; }
-    void  OnPerfectDodge();                 // 闪避成功回调（触发音效/特效/无敌/子弹时间）
-    void  OnPerfectParry(Bullet* bullet);   // 格挡成功回调（弹开或摧毁 bullet）
+void Player::OnRender(sf::RenderTarget& target) {
+    if (!active) return;
 
-    void  UseBomb();                        // 清屏炸弹
+    // 无敌时闪烁
+    if (IsInvincible()) {
+        if (static_cast<int>(invincibleTimer * 10.0f) % 2 == 0) {
+            target.draw(sprite);
+        }
+    } else {
+        target.draw(sprite);
+    }
+}
 
-private:
-    void  UpdateMovement(float dt);
-    void  UpdateTimers(float dt);
-    void  UpdateBulletTime(float dt);
-    void  Fire();
-    void  FireNormal();
-    void  FireVariant();
-    void  CheckPerfectActions();
+// ===========================================================================
+// 输入处理
+// ===========================================================================
 
-    // 返回最近敌弹；outDistance 为距离，无候选返回 nullptr
-    Bullet* FindClosestEnemyBullet(float& outDistance) const;
+void Player::HandleInput() {
+    auto& input = Input::Instance();
 
-    int   health = 3;
-    int   maxHealth = 3;
-    int   powerLevel = 1;        // 影响子弹数量/伤害
-    int   bombCount = 3;         // 炸弹数
+    // 移动方向
+    velocity = {0.0f, 0.0f};
+    if (input.IsKeyHeld(sf::Keyboard::Key::Left) || input.IsKeyHeld(sf::Keyboard::Key::A)) {
+        velocity.x = -config::PLAYER_SPEED;
+    }
+    if (input.IsKeyHeld(sf::Keyboard::Key::Right) || input.IsKeyHeld(sf::Keyboard::Key::D)) {
+        velocity.x = config::PLAYER_SPEED;
+    }
+    if (input.IsKeyHeld(sf::Keyboard::Key::Up) || input.IsKeyHeld(sf::Keyboard::Key::W)) {
+        velocity.y = -config::PLAYER_SPEED;
+    }
+    if (input.IsKeyHeld(sf::Keyboard::Key::Down) || input.IsKeyHeld(sf::Keyboard::Key::S)) {
+        velocity.y = config::PLAYER_SPEED;
+    }
 
-    float fireCooldown = 0.0f;
-    float fireInterval = 0.16f;
+    // 射击（持续按住）
+    if (input.IsKeyHeld(sf::Keyboard::Key::Z) || input.IsKeyHeld(sf::Keyboard::Key::Space)) {
+        Fire();
+    }
 
-    // 完美机制计时器（> 0 表示激活中）
-    float invincibleTimer = 0.0f;
-    float variantTimer = 0.0f;
-    float parryCooldown = 0.0f;
-    float dodgeCooldown = 0.0f;
-    float bulletTimeTimer = 0.0f;
+    // 完美格挡（本帧刚按下 X）
+    if (input.IsKeyPressed(sf::Keyboard::Key::X)) {
+        CheckPerfectActions();
+    }
 
-    sf::Vector2f velocity;
-};
+    // 完美闪避（本帧刚按下 Shift）
+    if (input.IsKeyPressed(sf::Keyboard::Key::LShift) || input.IsKeyPressed(sf::Keyboard::Key::RShift)) {
+        CheckPerfectActions();
+    }
+
+    // 炸弹（本帧刚按下 C）
+    if (input.IsKeyPressed(sf::Keyboard::Key::C)) {
+        UseBomb();
+    }
+}
+
+// ===========================================================================
+// 移动
+// ===========================================================================
+
+void Player::UpdateMovement(float dt) {
+    position += velocity * dt;
+}
+
+// ===========================================================================
+// 计时器
+// ===========================================================================
+
+void Player::UpdateTimers(float dt) {
+    if (fireCooldown > 0.0f) fireCooldown -= dt;
+    if (invincibleTimer > 0.0f) invincibleTimer -= dt;
+    if (variantTimer > 0.0f) variantTimer -= dt;
+    if (parryCooldown > 0.0f) parryCooldown -= dt;
+    if (dodgeCooldown > 0.0f) dodgeCooldown -= dt;
+
+    if (variantTimer <= 0.0f) {
+        variantTimer = 0.0f;
+    }
+}
+
+void Player::UpdateBulletTime(float dt) {
+    if (bulletTimeTimer > 0.0f) {
+        bulletTimeTimer -= dt;
+        Time::Instance().SetBulletTimeFactor(config::BULLET_TIME_SCALE);
+    } else {
+        bulletTimeTimer = 0.0f;
+        Time::Instance().SetBulletTimeFactor(1.0f);
+    }
+}
+
+// ===========================================================================
+// 射击
+// ===========================================================================
+
+void Player::Fire() {
+    if (fireCooldown > 0.0f) return;
+    fireCooldown = fireInterval;
+
+    if (IsVariantAttack()) {
+        FireVariant();
+    } else {
+        FireNormal();
+    }
+}
+
+void Player::FireNormal() {
+    if (!context || !context->objects) return;
+
+    float bulletSpeed = config::PLAYER_BULLET_SPEED;
+    AudioManager::Instance().PlaySfx("shoot_small");
+
+    switch (powerLevel) {
+        case 1:
+            context->objects->SpawnBullet(
+                position + sf::Vector2f(0.0f, -20.0f),
+                sf::Vector2f(0.0f, -bulletSpeed),
+                Faction::Player
+            );
+            break;
+        case 2:
+            context->objects->SpawnBullet(
+                position + sf::Vector2f(-8.0f, -16.0f),
+                sf::Vector2f(0.0f, -bulletSpeed),
+                Faction::Player
+            );
+            context->objects->SpawnBullet(
+                position + sf::Vector2f(8.0f, -16.0f),
+                sf::Vector2f(0.0f, -bulletSpeed),
+                Faction::Player
+            );
+            break;
+        case 3:
+            context->objects->SpawnBullet(
+                position + sf::Vector2f(0.0f, -20.0f),
+                sf::Vector2f(0.0f, -bulletSpeed),
+                Faction::Player
+            );
+            context->objects->SpawnBullet(
+                position + sf::Vector2f(-12.0f, -12.0f),
+                sf::Vector2f(-0.15f, -bulletSpeed),
+                Faction::Player
+            );
+            context->objects->SpawnBullet(
+                position + sf::Vector2f(12.0f, -12.0f),
+                sf::Vector2f(0.15f, -bulletSpeed),
+                Faction::Player
+            );
+            break;
+        default: {
+            // 4级以上：扇形散射
+            int count = powerLevel;
+            float spread = 20.0f;
+            for (int i = 0; i < count; ++i) {
+                float t = (count == 1) ? 0.0f
+                    : static_cast<float>(i) / static_cast<float>(count - 1);
+                float angle = -90.0f - spread / 2.0f + t * spread;
+                sf::Vector2f dir = math::DirectionFromAngle(angle);
+                context->objects->SpawnBullet(
+                    position + sf::Vector2f(0.0f, -16.0f),
+                    dir * bulletSpeed,
+                    Faction::Player
+                );
+            }
+            break;
+        }
+    }
+}
+
+void Player::FireVariant() {
+    if (!context || !context->objects) return;
+
+    float bulletSpeed = config::PLAYER_BULLET_SPEED * 1.2f;
+    AudioManager::Instance().PlaySfx("shoot_big");
+
+    // 变体攻击：更宽散射 + 更大伤害
+    int count = 3 + powerLevel * 2;
+    float spread = 45.0f;
+
+    for (int i = 0; i < count; ++i) {
+        float t = (count == 1) ? 0.0f
+            : static_cast<float>(i) / static_cast<float>(count - 1);
+        float angle = -90.0f - spread / 2.0f + t * spread;
+        sf::Vector2f dir = math::DirectionFromAngle(angle);
+        auto* bullet = context->objects->SpawnBullet(
+            position + sf::Vector2f(0.0f, -16.0f),
+            dir * bulletSpeed,
+            Faction::Player,
+            true
+        );
+        if (bullet) {
+            bullet->SetDamage(2);
+        }
+    }
+}
+
+// ===========================================================================
+// 完美机制
+// ===========================================================================
+
+Bullet* Player::FindClosestEnemyBullet(float& outDistance) const {
+    if (!context || !context->objects) {
+        outDistance = std::numeric_limits<float>::max();
+        return nullptr;
+    }
+
+    auto bullets = context->objects->GetEnemyBullets();
+    Bullet* closest = nullptr;
+    float minDistSq = std::numeric_limits<float>::max();
+
+    for (auto* bullet : bullets) {
+        if (bullet->IsDead()) continue;
+        float distSq = math::DistanceSq(position, bullet->GetPosition());
+        if (distSq < minDistSq) {
+            minDistSq = distSq;
+            closest = bullet;
+        }
+    }
+
+    outDistance = std::sqrt(minDistSq);
+    return closest;
+}
+
+void Player::CheckPerfectActions() {
+    auto& input = Input::Instance();
+
+    float dist = std::numeric_limits<float>::max();
+    Bullet* nearestBullet = FindClosestEnemyBullet(dist);
+
+    // 完美格挡（X 键）：需要在 PARRY_RADIUS 内
+    if (input.IsKeyPressed(sf::Keyboard::Key::X)) {
+        if (parryCooldown <= 0.0f && nearestBullet && dist <= config::PARRY_RADIUS) {
+            OnPerfectParry(nearestBullet);
+            return;
+        }
+    }
+
+    // 完美闪避（Shift 键）：需要在 DODGE_WARNING_RADIUS 内
+    if (input.IsKeyPressed(sf::Keyboard::Key::LShift) ||
+        input.IsKeyPressed(sf::Keyboard::Key::RShift)) {
+        if (dodgeCooldown <= 0.0f && nearestBullet && dist <= config::DODGE_WARNING_RADIUS) {
+            OnPerfectDodge();
+            return;
+        }
+    }
+}
+
+void Player::OnPerfectDodge() {
+    dodgeCooldown = config::DODGE_COOLDOWN;
+    invincibleTimer = config::DODGE_INVINCIBLE_TIME;
+    variantTimer = config::VARIANT_ATTACK_TIME;
+    bulletTimeTimer = config::BULLET_TIME_DURATION;
+
+    if (context && context->objects) {
+        context->objects->SpawnEffect(position, "evade", 0.8f);
+    }
+    AudioManager::Instance().PlaySfx("evade");
+    if (context && context->ui) {
+        context->ui->ShowMessage("PERFECT DODGE!", 1.0f);
+    }
+}
+
+void Player::OnPerfectParry(Bullet* bullet) {
+    parryCooldown = config::PARRY_COOLDOWN;
+    invincibleTimer = config::PARRY_INVINCIBLE_TIME;
+    variantTimer = config::VARIANT_ATTACK_TIME;
+
+    if (bullet && !bullet->IsDead()) {
+        bullet->Deflect();
+    }
+
+    if (context && context->objects) {
+        context->objects->SpawnEffect(position, "parry", 0.6f);
+    }
+    AudioManager::Instance().PlaySfx("parry");
+    if (context && context->ui) {
+        context->ui->ShowMessage("PERFECT PARRY!", 1.0f);
+    }
+}
+
+// ===========================================================================
+// 炸弹
+// ===========================================================================
+
+void Player::UseBomb() {
+    if (bombCount <= 0) return;
+    bombCount--;
+
+    // 清除所有敌方子弹
+    if (context && context->objects) {
+        auto bullets = context->objects->GetEnemyBullets();
+        for (auto* b : bullets) {
+            b->Destroy();
+        }
+    }
+
+    if (context && context->objects) {
+        context->objects->SpawnEffect(position, "explosion", 1.0f);
+    }
+    AudioManager::Instance().PlaySfx("plane_crash");
+}
+
+// ===========================================================================
+// 伤害与火力
+// ===========================================================================
+
+void Player::TakeDamage(int amount) {
+    if (IsInvincible() && amount > 0) return;
+
+    health -= amount;
+    health = math::Clamp(health, 0, maxHealth);
+
+    if (amount > 0 && health > 0) {
+        invincibleTimer = 1.0f;
+        if (powerLevel > 1) {
+            powerLevel--;
+        }
+    }
+
+    if (health <= 0) {
+        health = 0;
+        Destroy();
+    }
+}
+
+void Player::SetPowerLevel(int lv) {
+    powerLevel = lv;
+    if (powerLevel < 1) powerLevel = 1;
+    if (powerLevel > 5) powerLevel = 5;
+}

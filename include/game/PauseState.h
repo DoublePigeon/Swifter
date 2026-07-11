@@ -14,6 +14,8 @@
 
 class PauseState : public GameState {
 public:
+    PauseState();
+
     StateID GetID() const override { return StateID::Pause; }
 
     void OnEnter(GameContext* ctx) override;
@@ -24,7 +26,7 @@ public:
 private:
     void UpdateSelection(int delta);
 
-    std::vector<std::string> items = { "继续游戏", "返回主菜单" };
+    std::vector<std::string> items = { "Resume", "Return to Menu" };
     int selected = 0;
 
     sf::Text titleText;

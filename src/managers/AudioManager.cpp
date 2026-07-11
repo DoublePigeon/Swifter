@@ -1,4 +1,5 @@
 #include "managers/AudioManager.h"
+#include "core/ResourceManager.h"
 
 AudioManager& AudioManager::Instance() {
     static AudioManager instance;
@@ -12,11 +13,24 @@ void AudioManager::RegisterSfx(const std::string& name, const std::string& path)
 }
 
 void AudioManager::PlaySfx(const std::string& name) {
-    // 桩：待 ResourceManager 实现 SoundBuffer 加载后填充
+    auto it = sfxBindings.find(name);
+    if (it == sfxBindings.end()) {
+        return;
+    }
+
+    auto& buffer = ResourceManager::Instance().GetSoundBuffer(it->second);
+    auto& sound = activeSounds.emplace_back(buffer);
+    sound.setVolume(sfxVolume);
+    sound.play();
 }
 
 void AudioManager::PlayMusic(const std::string& path, bool loop) {
-    // 桩：待后续实现
+    if (!music.openFromFile(path)) {
+        return;
+    }
+    music.setLooping(loop);
+    music.setVolume(musicVolume);
+    music.play();
 }
 
 void AudioManager::StopMusic() {

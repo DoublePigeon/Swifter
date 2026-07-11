@@ -15,7 +15,7 @@ include(FetchContent)
 # 好处是：最终只生成一个独立的 .exe，不需要到处拷贝 dll！
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 
-message(STATUS "获取 SFML 3.1.0 源码...")
+message(STATUS "Get SFML 3.1.0 source code...")
 FetchContent_Declare(
     SFML
     GIT_REPOSITORY https://github.com/SFML/SFML.git
@@ -52,4 +52,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # 设置调试时的工作目录为项目根目录 (以便正确读取 assets/ 下的图片和音频)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
+    COMMENT "Copying assets files to build directory..."
 )

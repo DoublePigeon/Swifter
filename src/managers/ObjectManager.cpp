@@ -1,70 +1,200 @@
-#pragma once
+#include "managers/ObjectManager.h"
+#include "core/GameContext.h"
+#include "managers/ScoreManager.h"
 
-#include <vector>
-#include <memory>
-#include <SFML/System/Vector2.hpp>
+#include "objects/Player.h"
+#include "objects/Bullet.h"
+#include "objects/Enemy.h"
+#include "objects/NormalEnemy.h"
+#include "objects/ShooterEnemy.h"
+#include "objects/Boss.h"
+#include "objects/Item.h"
+#include "objects/Effect.h"
 
-#include "core/GameObject.h"
-#include "core/Types.h"
-
-// 前向声明，避免头文件互相包含
-class Player;
-class Bullet;
-class Enemy;
-class Item;
-class Effect;
-struct GameContext;
+#include <algorithm>
 
 // ===========================================================================
 // ObjectManager：统一管理所有屏幕实体。
-// 使用 shared_ptr 持有对象，提供按类型查询、生成、回收等能力。
-// 负责每帧调用所有对象的 OnUpdate/OnRender，并清理已标记 dead 的对象。
 // ===========================================================================
 
-class ObjectManager {
-public:
-    ObjectManager();
-    ~ObjectManager();
+ObjectManager::ObjectManager() = default;
+ObjectManager::~ObjectManager() {
+    Clear();
+}
 
-    void SetContext(GameContext* ctx);
+void ObjectManager::SetContext(GameContext* ctx) {
+    context = ctx;
+}
 
-    // —— 生成便捷接口（返回裸指针便于直接操作）——
-    Player* SpawnPlayer(const sf::Vector2f& pos);
-    Enemy*  SpawnEnemy(EnemyType type, const sf::Vector2f& pos, ItemType drop = ItemType::None);
-    Bullet* SpawnBullet(const sf::Vector2f& pos, const sf::Vector2f& velocity,
-                        Faction faction, bool variant = false);
-    Item*   SpawnItem(ItemType type, const sf::Vector2f& pos);
-    Effect* SpawnEffect(const sf::Vector2f& pos, const std::string& effectName, float duration = 0.5f);
+void ObjectManager::AddObject(std::shared_ptr<GameObject> obj) {
+    if (!obj) return;
+    obj->SetContext(context);
+    obj->OnInit();
+    objects.push_back(obj);
+}
 
-    // 通用添加（对象会被调用 OnInit）
-    void AddObject(std::shared_ptr<GameObject> obj);
+// —— 生成便捷接口 ——
 
-    // —— 生命周期 ——
-    void UpdateAll(float dt);
-    void RenderAll(sf::RenderTarget& target);
-    void ClearDead();  // 移除 dead/出界 对象，调用 OnDestroy
-    void Clear();      // 清空全部
+Player* ObjectManager::SpawnPlayer(const sf::Vector2f& pos) {
+    auto player = std::make_shared<Player>();
+    player->SetPosition(pos);
+    auto* raw = player.get();
+    AddObject(player);
+    playerRef = raw;
+    // 同步到 GameContext
+    if (context) {
+        context->player = raw;
+    }
+    return raw;
+}
 
-    // —— 查询 ——
-    const std::vector<std::shared_ptr<GameObject>>& GetObjects() const { return objects; }
+Enemy* ObjectManager::SpawnEnemy(EnemyType type, const sf::Vector2f& pos, ItemType drop) {
+    std::shared_ptr<Enemy> enemy;
 
-    std::vector<Bullet*> GetEnemyBullets() const;   // 给格挡/闪避检测用
-    std::vector<Bullet*> GetPlayerBullets() const;
-    std::vector<Enemy*>  GetEnemies() const;
-    Player*              GetPlayer() const;
-
-    // 通用按类型查询（利用 dynamic_cast）
-    template<typename T>
-    std::vector<T*> GetObjectsByType() const {
-        std::vector<T*> result;
-        for (auto& obj : objects) {
-            if (auto p = dynamic_cast<T*>(obj.get())) result.push_back(p);
-        }
-        return result;
+    switch (type) {
+        case EnemyType::Normal:
+            enemy = std::make_shared<NormalEnemy>();
+            break;
+        case EnemyType::Shooter:
+            enemy = std::make_shared<ShooterEnemy>();
+            break;
+        case EnemyType::Boss:
+            enemy = std::make_shared<Boss>();
+            break;
+        default:
+            enemy = std::make_shared<NormalEnemy>();
+            break;
     }
 
-private:
-    GameContext* context = nullptr;
-    std::vector<std::shared_ptr<GameObject>> objects;
-    Player* playerRef = nullptr; // 便捷弱引用（对象仍由 objects 持有）
-};
+    enemy->SetPosition(pos);
+    enemy->SetDropItem(drop);
+    auto* raw = enemy.get();
+    AddObject(enemy);
+    return raw;
+}
+
+Bullet* ObjectManager::SpawnBullet(const sf::Vector2f& pos, const sf::Vector2f& velocity,
+                                    Faction faction, bool variant) {
+    auto bullet = std::make_shared<Bullet>();
+    bullet->SetPosition(pos);
+    bullet->SetFaction(faction);
+    bullet->SetVelocity(velocity);
+    if (variant) {
+        bullet->SetVariant(true);
+    }
+    auto* raw = bullet.get();
+    AddObject(bullet);
+    return raw;
+}
+
+Item* ObjectManager::SpawnItem(ItemType type, const sf::Vector2f& pos) {
+    auto item = std::make_shared<Item>();
+    item->SetItemType(type);
+    item->SetPosition(pos);
+    auto* raw = item.get();
+    AddObject(item);
+    return raw;
+}
+
+Effect* ObjectManager::SpawnEffect(const sf::Vector2f& pos, const std::string& effectName,
+                                    float duration) {
+    auto effect = std::make_shared<Effect>();
+    effect->SetPosition(pos);
+    effect->Setup(effectName, duration);
+    auto* raw = effect.get();
+    AddObject(effect);
+    return raw;
+}
+
+// —— 生命周期 ——
+
+void ObjectManager::UpdateAll(float dt) {
+    for (auto& obj : objects) {
+        if (obj->IsActive()) {
+            obj->OnUpdate(dt);
+        }
+    }
+    ClearDead();
+}
+
+void ObjectManager::RenderAll(sf::RenderTarget& target) {
+    for (auto& obj : objects) {
+        if (obj->IsActive()) {
+            obj->OnRender(target);
+        }
+    }
+}
+
+void ObjectManager::ClearDead() {
+    auto it = std::remove_if(objects.begin(), objects.end(),
+        [](const std::shared_ptr<GameObject>& obj) {
+            if (obj->IsDead()) {
+                obj->OnDestroy();
+                return true;
+            }
+            return false;
+        });
+    objects.erase(it, objects.end());
+
+    // 检查 playerRef 是否已被移除
+    if (playerRef && playerRef->IsDead()) {
+        playerRef = nullptr;
+        if (context) {
+            context->player = nullptr;
+        }
+    }
+}
+
+void ObjectManager::Clear() {
+    for (auto& obj : objects) {
+        obj->OnDestroy();
+    }
+    objects.clear();
+    playerRef = nullptr;
+    if (context) {
+        context->player = nullptr;
+    }
+}
+
+// —— 查询 ——
+
+std::vector<Bullet*> ObjectManager::GetEnemyBullets() const {
+    std::vector<Bullet*> result;
+    for (auto& obj : objects) {
+        if (obj->IsDead()) continue;
+        if (auto* bullet = dynamic_cast<Bullet*>(obj.get())) {
+            if (bullet->GetFaction() == Faction::Enemy) {
+                result.push_back(bullet);
+            }
+        }
+    }
+    return result;
+}
+
+std::vector<Bullet*> ObjectManager::GetPlayerBullets() const {
+    std::vector<Bullet*> result;
+    for (auto& obj : objects) {
+        if (obj->IsDead()) continue;
+        if (auto* bullet = dynamic_cast<Bullet*>(obj.get())) {
+            if (bullet->GetFaction() == Faction::Player) {
+                result.push_back(bullet);
+            }
+        }
+    }
+    return result;
+}
+
+std::vector<Enemy*> ObjectManager::GetEnemies() const {
+    std::vector<Enemy*> result;
+    for (auto& obj : objects) {
+        if (obj->IsDead()) continue;
+        if (auto* enemy = dynamic_cast<Enemy*>(obj.get())) {
+            result.push_back(enemy);
+        }
+    }
+    return result;
+}
+
+Player* ObjectManager::GetPlayer() const {
+    return playerRef;
+}

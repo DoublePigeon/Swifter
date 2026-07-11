@@ -1,34 +1,71 @@
-#pragma once
+#include "objects/Effect.h"
+#include "core/GameContext.h"
+#include "core/ResourceManager.h"
 
-#include <string>
+#include <SFML/Graphics/Texture.hpp>
 
-#include "core/GameObject.h"
+#include <SFML/Graphics/CircleShape.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
 
 // ===========================================================================
-// Effect：纯视觉特效（如格挡光环、爆炸、闪避残影、文字“PERFECT!”）。
-// 不参与碰撞，按 duration 播放缩放/淡出动画后自动销毁。
-// 通过 effectName 区分具体表现。
+// Effect：纯视觉特效（格挡光环、爆炸、闪避残影）。
 // ===========================================================================
 
-class Effect : public GameObject {
-public:
-    Effect();
-    ~Effect() override = default;
+Effect::Effect() {
+    radius = 0.0f; // 不参与碰撞
+}
 
-    ObjectType GetType() const override { return ObjectType::Effect; }
+void Effect::OnInit() {
+    // 纹理由 Setup 中的 effectName 决定
+}
 
-    void OnInit() override;
-    void OnUpdate(float dt) override;
-    void OnRender(sf::RenderTarget& target) override;
-    void OnDestroy() override {}
+void Effect::Setup(const std::string& name, float dur) {
+    effectName = name;
+    duration = dur;
+    elapsed = 0.0f;
 
-    void Setup(const std::string& name, float duration);
+    // 根据效果名设置纹理
+    if (name == "parry") {
+        sprite.setTexture(context->resources->GetTexture("assets/images/parry.png"));
+    } else if (name == "evade") {
+        sprite.setTexture(context->resources->GetTexture("assets/images/evade.png"));
+    } else if (name == "explosion") {
+        sprite.setTexture(context->resources->GetTexture("assets/images/explosion.png"));
+    } else {
+        // 未知效果：使用默认 dummy
+        sprite.setTexture(context->resources->GetTexture("assets/images/dummy.png"));
+    }
 
-    const std::string& GetName() const { return effectName; }
-    bool IsFinished() const { return elapsed >= duration; }
+    auto texSize = sprite.getTexture().getSize();
+    sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
+}
 
-private:
-    std::string effectName;
-    float duration = 0.5f;
-    float elapsed = 0.0f;
-};
+void Effect::OnUpdate(float dt) {
+    if (!active) return;
+
+    elapsed += dt;
+    if (elapsed >= duration) {
+        Destroy();
+        return;
+    }
+
+    // 缩放动画：从小变大
+    float progress = elapsed / duration;
+    float scale = 1.0f + progress * 1.5f; // 逐渐放大
+    sprite.setScale({scale, scale});
+
+    // 透明度：逐渐淡出
+    float alpha = 255.0f * (1.0f - progress);
+    sf::Color col = sprite.getColor();
+    col.a = static_cast<std::uint8_t>(alpha);
+    sprite.setColor(col);
+
+    sprite.setPosition(position);
+}
+
+void Effect::OnRender(sf::RenderTarget& target) {
+    if (!active) return;
+    target.draw(sprite);
+}
+

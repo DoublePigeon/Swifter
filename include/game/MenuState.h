@@ -26,7 +26,7 @@ public:
 private:
     void UpdateSelection(int delta);
 
-    std::vector<std::string> items = { "开始游戏", "选择关卡", "退出" };
+    std::vector<std::string> items = { "Start Game", "Select Level", "Exit" };
     int selected = 0;
 
     sf::Text titleText;

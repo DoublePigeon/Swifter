@@ -2,6 +2,7 @@
 
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/Font.hpp>
 #include <string>
 
 struct GameContext;

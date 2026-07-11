@@ -1,5 +1,5 @@
 # Swifter 关卡索引
 # 格式: 文件名:显示名:是否解锁(1/0)
-level1.txt:第一关 新手训练:1
-level2.txt:第二关 弹幕洗礼:0
-level3.txt:第三关 BOSS降临:0
+level1.txt:Level 1 - Basic Training:1
+level2.txt:Level 2 - Bullet Storm:0
+level3.txt:Level 3 - Boss Arrives:0

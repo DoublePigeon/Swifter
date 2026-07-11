@@ -1,54 +1,85 @@
-#pragma once
+#include "objects/Enemy.h"
+#include "core/GameContext.h"
+#include "core/ResourceManager.h"
+#include "core/Config.h"
+#include "managers/ObjectManager.h"
+#include "managers/ScoreManager.h"
+#include "managers/AudioManager.h"
 
-#include <SFML/System/Vector2.hpp>
-
-#include "core/GameObject.h"
-#include "core/Types.h"
+#include <SFML/Graphics/Texture.hpp>
 
 // ===========================================================================
 // Enemy：所有敌机基类。
-// 子类实现 UpdateBehavior（移动）与 Fire（射击）。
-// 被击杀时按 dropItem 掉落道具，并按 scoreValue 给分。
 // ===========================================================================
 
-class Enemy : public GameObject {
-public:
-    Enemy();
-    ~Enemy() override = default;
+Enemy::Enemy() {
+    radius = 20.0f;
+}
 
-    ObjectType GetType() const override { return ObjectType::Enemy; }
+void Enemy::OnInit() {
+    // 子类设置自己的纹理
+}
 
-    void OnInit() override;
-    void OnUpdate(float dt) override; // 调用子类 UpdateBehavior + Fire 计时
-    void OnRender(sf::RenderTarget& target) override;
-    void OnDestroy() override {}
+void Enemy::OnUpdate(float dt) {
+    if (!active) return;
 
-    // 子类实现
-    virtual void UpdateBehavior(float dt) {}
-    virtual void Fire() {}
+    // 子类实现移动逻辑
+    UpdateBehavior(dt);
 
-    // —— 生命 ——
-    void TakeDamage(int amount);
-    int  GetHealth() const { return health; }
-    int  GetMaxHealth() const { return maxHealth; }
-    bool IsAlive() const { return health > 0; }
+    // 射击计时
+    fireTimer += dt;
+    if (fireTimer >= fireInterval) {
+        fireTimer = 0.0f;
+        Fire();
+    }
 
-    // —— 掉落与给分 ——
-    void     SetDropItem(ItemType type) { dropItem = type; }
-    ItemType GetDropItem() const { return dropItem; }
-    int      GetScoreValue() const { return scoreValue; }
-    void     SetScoreValue(int v) { scoreValue = v; }
+    // 边界检查：超出屏幕下方后销毁
+    if (position.y > config::WINDOW_HEIGHT + 60.0f) {
+        Destroy();
+        return;
+    }
+    // 左右也做边界限制（NormalEnemy 等可能偏出屏幕）
+    if (position.x < -60.0f || position.x > config::WINDOW_WIDTH + 60.0f) {
+        Destroy();
+        return;
+    }
 
-    // 敌机种类标识
-    virtual EnemyType GetEnemyType() const = 0;
+    sprite.setPosition(position);
+    sprite.setRotation(sf::degrees(rotation));
+}
 
-protected:
-    int   health = 1;
-    int   maxHealth = 1;
-    int   scoreValue = 100;
-    ItemType dropItem = ItemType::None;
+void Enemy::OnRender(sf::RenderTarget& target) {
+    if (!active) return;
+    target.draw(sprite);
+}
 
-    float fireTimer = 0.0f;
-    float fireInterval = 2.0f;
-    sf::Vector2f velocity;
-};
+void Enemy::TakeDamage(int amount) {
+    health -= amount;
+    if (health <= 0) {
+        health = 0;
+
+        // 被击杀音效
+        AudioManager::Instance().PlaySfx("plane_crash");
+
+        // 生成爆炸特效
+        if (context && context->objects) {
+            context->objects->SpawnEffect(position, "explosion", 0.8f);
+        }
+
+        // 掉落道具
+        if (dropItem != ItemType::None && context && context->objects) {
+            context->objects->SpawnItem(dropItem, position);
+        }
+
+        // 给分
+        if (context && context->score) {
+            context->score->AddScore(scoreValue);
+        }
+
+        Destroy();
+    } else {
+        // 受伤音效
+        AudioManager::Instance().PlaySfx("plane_hit_by");
+    }
+}
+

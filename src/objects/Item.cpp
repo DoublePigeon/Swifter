@@ -1,40 +1,131 @@
-#pragma once
+#include "objects/Item.h"
+#include "objects/Player.h"
+#include "core/GameContext.h"
+#include "core/ResourceManager.h"
+#include "core/Config.h"
+#include "managers/ScoreManager.h"
 
-#include <SFML/System/Vector2.hpp>
+#include <SFML/Graphics/Texture.hpp>
 
-#include "core/GameObject.h"
-#include "core/Types.h"
-
-class Player;
+#include <cmath>
 
 // ===========================================================================
 // Item：掉落道具。
-// 缓慢下落并做上下浮动动画；被自机拾取后对自机生效，超时自动消失。
-// 效果：回血 / 火力升级 / 炸弹 / 护盾 / 加分。
 // ===========================================================================
 
-class Item : public GameObject {
-public:
-    Item();
-    ~Item() override = default;
+Item::Item() {
+    radius = 14.0f;
+    maxLifeTime = 12.0f;
+}
 
-    ObjectType GetType() const override { return ObjectType::Item; }
+void Item::OnInit() {
+    // 根据类型设置纹理
+    switch (type) {
+        case ItemType::Heal:
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"));
+            break;
+        case ItemType::Bomb:
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_bomb.png"));
+            break;
+        case ItemType::PowerUp:
+            // PowerUp 使用 heal 纹理但染色
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"));
+            sprite.setColor(sf::Color(255, 200, 50));
+            break;
+        case ItemType::ScoreBonus:
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_bomb.png"));
+            sprite.setColor(sf::Color(255, 255, 100));
+            break;
+        case ItemType::Shield:
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"));
+            sprite.setColor(sf::Color(100, 150, 255));
+            break;
+        default:
+            sprite.setTexture(context->resources->GetTexture("assets/images/dummy.png"));
+            break;
+    }
 
-    void OnInit() override;
-    void OnUpdate(float dt) override;
-    void OnRender(sf::RenderTarget& target) override;
-    void OnDestroy() override {}
+    auto texSize = sprite.getTexture().getSize();
+    sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
 
-    void     SetItemType(ItemType t) { type = t; }
-    ItemType GetItemType() const { return type; }
+    // 缓慢下落
+    velocity = {0.0f, 60.0f};
+}
 
-    // 对玩家生效（由碰撞管理器在拾取时调用）
-    void ApplyToPlayer(Player* player);
+void Item::OnUpdate(float dt) {
+    if (!active) return;
 
-private:
-    ItemType type = ItemType::Heal;
-    sf::Vector2f velocity;
-    float bobTimer = 0.0f;    // 浮动动画相位
-    float lifeTime = 0.0f;
-    float maxLifeTime = 12.0f;
-};
+    lifeTime += dt;
+    if (lifeTime >= maxLifeTime) {
+        Destroy();
+        return;
+    }
+
+    // 浮动动画
+    bobTimer += dt;
+    float bobOffset = std::sin(bobTimer * 3.0f) * 6.0f;
+
+    // 下落
+    position += velocity * dt;
+
+    // 出界销毁
+    if (position.y > config::WINDOW_HEIGHT + 30.0f) {
+        Destroy();
+        return;
+    }
+
+    sprite.setPosition({position.x, position.y + bobOffset});
+    sprite.setRotation(sf::degrees(rotation));
+}
+
+void Item::OnRender(sf::RenderTarget& target) {
+    if (!active) return;
+
+    // 快过期时闪烁
+    if (lifeTime > maxLifeTime - 3.0f) {
+        if (static_cast<int>(lifeTime * 8.0f) % 2 == 0) {
+            target.draw(sprite);
+        }
+    } else {
+        target.draw(sprite);
+    }
+}
+
+void Item::ApplyToPlayer(Player* player) {
+    if (!player) return;
+
+    switch (type) {
+        case ItemType::Heal:
+            // 回一点血
+            if (player->GetHealth() < player->GetMaxHealth()) {
+                player->TakeDamage(-1); // 负伤害即回血
+            }
+            break;
+        case ItemType::PowerUp:
+            // 火力升级
+            player->SetPowerLevel(player->GetPowerLevel() + 1);
+            break;
+        case ItemType::Bomb:
+            // 加一个炸弹
+            player->UseBomb(); // 直接使用炸弹效果
+            break;
+        case ItemType::ScoreBonus:
+            // 加分
+            if (context && context->score) {
+                context->score->AddScore(500);
+            }
+            break;
+        case ItemType::Shield:
+            // 短暂无敌
+            player->TakeDamage(0); // 临时无敌效果通过 OnPerfectDodge 获得
+            // 通过变体攻击触发无敌
+            {
+                // 触发短暂无敌（模拟护盾）
+                player->OnPerfectDodge();
+            }
+            break;
+        default:
+            break;
+    }
+}
+

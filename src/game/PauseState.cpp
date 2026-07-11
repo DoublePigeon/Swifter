@@ -1,32 +1,87 @@
-#pragma once
+#include "game/PauseState.h"
+#include "game/MenuState.h"
+#include "game/StateMachine.h"
+#include "core/GameContext.h"
+#include "core/Input.h"
+#include "core/ResourceManager.h"
+#include "core/Config.h"
 
-#include <vector>
-#include <string>
+#include <SFML/Window/Keyboard.hpp>
 
-#include <SFML/Graphics/Text.hpp>
+namespace {
+    sf::Font& DummyFontForPause() {
+        static sf::Font font;
+        return font;
+    }
+}
 
-#include "game/GameState.h"
+PauseState::PauseState()
+    : titleText(DummyFontForPause()) {
+}
 
-// ===========================================================================
-// PauseState：暂停叠加层（Push 到栈顶，不销毁下层 PlayState）。
-// 选项：继续游戏 / 返回主菜单。Esc 也可继续。
-// ===========================================================================
+void PauseState::OnEnter(GameContext* ctx) {
+    context = ctx;
+    selected = 0;
 
-class PauseState : public GameState {
-public:
-    StateID GetID() const override { return StateID::Pause; }
+    const sf::Font& font = ctx->resources->GetFont("assets/fonts/BestTen-CRT.otf");
 
-    void OnEnter(GameContext* ctx) override;
-    void OnExit() override;
-    void OnUpdate(float dt) override;
-    void OnRender(sf::RenderTarget& target) override;
+    titleText.setFont(font);
+    titleText.setString("PAUSED");
+    titleText.setCharacterSize(48);
+    titleText.setFillColor(sf::Color::White);
+    sf::FloatRect tb = titleText.getLocalBounds();
+    titleText.setOrigin({tb.size.x / 2.f, tb.size.y / 2.f});
+    titleText.setPosition({config::WINDOW_WIDTH / 2.0f, 200.0f});
 
-private:
-    void UpdateSelection(int delta);
+    itemTexts.clear();
+    for (size_t i = 0; i < items.size(); ++i) {
+        itemTexts.emplace_back(font, items[i], 32);
+        itemTexts[i].setFillColor(sf::Color(180, 180, 180));
+        sf::FloatRect b = itemTexts[i].getLocalBounds();
+        itemTexts[i].setOrigin({b.size.x / 2.f, b.size.y / 2.f});
+        itemTexts[i].setPosition({config::WINDOW_WIDTH / 2.0f, 320.0f + i * 60.0f});
+    }
+    itemTexts[selected].setFillColor(sf::Color::Yellow);
+}
 
-    std::vector<std::string> items = { "继续游戏", "返回主菜单" };
-    int selected = 0;
+void PauseState::OnExit() {
+}
 
-    sf::Text titleText;
-    std::vector<sf::Text> itemTexts;
-};
+void PauseState::OnUpdate(float dt) {
+    auto& input = Input::Instance();
+
+    if (input.IsKeyPressed(sf::Keyboard::Key::Up) || input.IsKeyPressed(sf::Keyboard::Key::W)) {
+        UpdateSelection(-1);
+    }
+    if (input.IsKeyPressed(sf::Keyboard::Key::Down) || input.IsKeyPressed(sf::Keyboard::Key::S)) {
+        UpdateSelection(1);
+    }
+
+    if (input.IsKeyPressed(sf::Keyboard::Key::Enter) || input.IsKeyPressed(sf::Keyboard::Key::Space)) {
+        if (selected == 0) {
+            // 继续游戏 → 弹出暂停层
+            context->stateMachine->PopState();
+        } else {
+            // 返回主菜单
+            context->stateMachine->ChangeState(std::make_unique<MenuState>());
+        }
+    }
+
+    // Esc 也继续
+    if (input.IsKeyPressed(sf::Keyboard::Key::Escape)) {
+        context->stateMachine->PopState();
+    }
+}
+
+void PauseState::OnRender(sf::RenderTarget& target) {
+    target.draw(titleText);
+    for (auto& t : itemTexts) {
+        target.draw(t);
+    }
+}
+
+void PauseState::UpdateSelection(int delta) {
+    itemTexts[selected].setFillColor(sf::Color(180, 180, 180));
+    selected = (selected + delta + static_cast<int>(items.size())) % static_cast<int>(items.size());
+    itemTexts[selected].setFillColor(sf::Color::Yellow);
+}

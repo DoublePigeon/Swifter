@@ -70,9 +70,3 @@ flowchart LR
 ## 构建
 
 使用CMake 4.4.0，SFML 3.1.0，MinGW 15.2.0于Windows
-
-```bash
-mkdir build && cd build
-cmake .. -DSFML_DIR="<SFML安装路径>/lib/cmake/SFML"
-cmake --build . --config Release
-```

@@ -1,70 +1,109 @@
-#pragma once
+#include "objects/Bullet.h"
+#include "core/GameContext.h"
+#include "core/ResourceManager.h"
+#include "core/Config.h"
+#include "core/Math.h"
+#include "core/Time.h"
+#include "managers/ObjectManager.h"
+#include "objects/Player.h"
 
-#include <SFML/System/Vector2.hpp>
-
-#include "core/GameObject.h"
-#include "core/Types.h"
+#include <SFML/Graphics/Texture.hpp>
 
 // ===========================================================================
 // Bullet：通用子弹（玩家与敌方共用）。
-//   - faction 区分阵营，决定与谁碰撞
-//   - variant 标记玩家变体攻击子弹（更宽/更强）
-//   - homing 标记追踪弹（BOSS 可用）
-//   - Deflect() 由完美格挡调用，把敌方子弹弹反为玩家子弹
-// 敌方子弹在 OnUpdate 中受 Time::BulletTimeFactor 影响（完美闪避子弹时间）。
-// 出界或超过 maxLifeTime 自动销毁。
 // ===========================================================================
 
-class Bullet : public GameObject {
-public:
-    Bullet();
-    ~Bullet() override = default;
+Bullet::Bullet() {
+    radius = 6.0f;
+}
 
-    ObjectType GetType() const override { return ObjectType::Bullet; }
+void Bullet::OnInit() {
+    // 根据阵营和变体设置纹理
+    if (faction == Faction::Player) {
+        if (variant) {
+            sprite.setTexture(context->resources->GetTexture("assets/images/big_bullet.png"));
+            radius = 12.0f;
+        } else {
+            sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"));
+            radius = 6.0f;
+        }
+    } else {
+        sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"));
+        sprite.setColor(sf::Color(255, 100, 100)); // 敌弹偏红
+        radius = 6.0f;
+    }
+    // 设置原点为中心
+    auto texSize = sprite.getTexture().getSize();
+    sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
+}
 
-    void OnInit() override;
-    void OnUpdate(float dt) override;
-    void OnRender(sf::RenderTarget& target) override;
-    void OnDestroy() override {}
+void Bullet::OnUpdate(float dt) {
+    if (!active) return;
 
-    // —— 速度 ——
-    void  SetVelocity(const sf::Vector2f& v) { velocity = v; }
-    const sf::Vector2f& GetVelocity() const { return velocity; }
-    void  SetSpeed(float s) { speed = s; }
-    float GetSpeed() const { return speed; }
+    // 敌方子弹受子弹时间影响
+    float effectiveDt = (faction == Faction::Enemy) ? dt * Time::Instance().BulletTimeFactor() : dt;
+    lifeTime += effectiveDt;
 
-    // —— 阵营与伤害 ——
-    void    SetFaction(Faction f) { faction = f; }
-    Faction GetFaction() const { return faction; }
-    void    SetDamage(int d) { damage = d; }
-    int     GetDamage() const { return damage; }
+    // 超时销毁
+    if (lifeTime >= maxLifeTime) {
+        Destroy();
+        return;
+    }
 
-    // —— 变体攻击 ——
-    void SetVariant(bool v) { variant = v; }
-    bool IsVariant() const { return variant; }
+    // 追踪弹：朝向玩家
+    if (homing && faction == Faction::Enemy && context && context->player) {
+        auto* player = context->player;
+        if (player->IsActive() && !player->IsDead()) {
+            sf::Vector2f toPlayer = player->GetPosition() - position;
+            float dist = math::Length(toPlayer);
+            if (dist > 1.0f) {
+                sf::Vector2f dirToPlayer = toPlayer / dist;
+                sf::Vector2f currentDir = math::Normalize(velocity);
+                sf::Vector2f newDir = math::Normalize(
+                    currentDir + dirToPlayer * homingRate * effectiveDt
+                );
+                velocity = newDir * speed;
+            }
+        }
+    }
 
-    // —— 追踪 ——
-    void SetHoming(bool h, float rate = 2.0f);
-    bool IsHoming() const { return homing; }
+    // 移动
+    position += velocity * effectiveDt;
 
-    // —— 弹反（完美格挡）——
-    void Deflect();
-    bool IsDeflected() const { return deflected; }
+    // 出界检测
+    const float margin = 50.0f;
+    if (position.x < -margin || position.x > config::WINDOW_WIDTH + margin ||
+        position.y < -margin || position.y > config::WINDOW_HEIGHT + margin) {
+        Destroy();
+        return;
+    }
 
-    // —— 生命周期 ——
-    void SetMaxLifeTime(float t) { maxLifeTime = t; }
+    sprite.setPosition(position);
+    sprite.setRotation(sf::degrees(rotation));
+}
 
-private:
-    sf::Vector2f velocity;
-    float speed = 300.0f;
-    int   damage = 1;
-    Faction faction = Faction::Enemy;
+void Bullet::OnRender(sf::RenderTarget& target) {
+    if (!active) return;
+    target.draw(sprite);
+}
 
-    bool  variant = false;
-    bool  homing = false;
-    float homingRate = 2.0f;
-    bool  deflected = false;
+void Bullet::SetHoming(bool h, float rate) {
+    homing = h;
+    homingRate = rate;
+}
 
-    float lifeTime = 0.0f;
-    float maxLifeTime = 8.0f;
-};
+void Bullet::Deflect() {
+    if (deflected) return;
+    deflected = true;
+
+    // 阵营变为玩家方
+    faction = Faction::Player;
+    // 反转方向并加速
+    velocity = -velocity;
+    speed = config::PLAYER_BULLET_SPEED;
+    velocity = math::Normalize(velocity) * speed;
+    // 更新纹理为玩家子弹
+    sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"));
+    sprite.setColor(sf::Color::White);
+}
+

@@ -1,41 +1,90 @@
-#pragma once
-
-#include <queue>
-#include <string>
-
-#include "data/LevelData.h"
-#include "core/Types.h"
-
-class ObjectManager;
-struct GameContext;
+#include "managers/LevelManager.h"
+#include "data/LevelLoader.h"
+#include "managers/ObjectManager.h"
+#include "core/GameContext.h"
+#include "objects/Boss.h"
 
 // ===========================================================================
 // LevelManager：按时间轴驱动敌机生成。
-// LoadLevel 读取关卡文件并解析为按时间排序的生成事件队列；
-// Update 累加时间，到点即把事件交给 ObjectManager 生成对应敌机。
-// 当队列清空且场上无敌机（BOSS 已被击杀）时关卡完成。
 // ===========================================================================
 
-class LevelManager {
-public:
-    LevelManager();
-    void SetContext(GameContext* ctx);
+LevelManager::LevelManager() = default;
 
-    bool  LoadLevel(const std::string& filename); // 解析关卡文件
-    void  Start();                                 // 重置计时器
-    void  Update(float dt);                        // 驱动生成
+void LevelManager::SetContext(GameContext* ctx) {
+    context = ctx;
+}
 
-    bool  IsLevelComplete() const; // 队列空且场上无敌机
-    bool  IsBossDefeated() const;  // 关卡内 BOSS 是否被击杀
-    float GetLevelTime() const { return levelTimer; }
+bool LevelManager::LoadLevel(const std::string& filename) {
+    std::vector<EnemySpawnEvent> events;
+    if (!LevelLoader::Load(filename, events)) {
+        return false;
+    }
 
-    const std::string& GetLevelName() const { return levelName; }
-    void  SetLevelName(const std::string& name) { levelName = name; }
+    // 清空旧队列，重新填充
+    while (!spawnQueue.empty()) {
+        spawnQueue.pop();
+    }
 
-private:
-    GameContext* context = nullptr;
-    float levelTimer = 0.0f;
-    std::queue<EnemySpawnEvent> spawnQueue;
-    std::string levelName;
-    bool levelComplete = false;
-};
+    for (auto& event : events) {
+        spawnQueue.push(event);
+    }
+
+    levelComplete = false;
+    return true;
+}
+
+void LevelManager::Start() {
+    levelTimer = 0.0f;
+    levelComplete = false;
+}
+
+void LevelManager::Update(float dt) {
+    if (levelComplete) return;
+
+    levelTimer += dt;
+
+    // 按时间轴生成敌机
+    while (!spawnQueue.empty() && spawnQueue.front().spawnTime <= levelTimer) {
+        const auto& event = spawnQueue.front();
+
+        if (context && context->objects) {
+            context->objects->SpawnEnemy(event.type, event.position, event.dropItem);
+        }
+
+        spawnQueue.pop();
+    }
+
+    // 检查是否完成：队列空且场上无敌机
+    if (spawnQueue.empty() && context && context->objects) {
+        auto enemies = context->objects->GetEnemies();
+        if (enemies.empty()) {
+            levelComplete = true;
+        }
+    }
+}
+
+bool LevelManager::IsLevelComplete() const {
+    return levelComplete;
+}
+
+bool LevelManager::IsBossDefeated() const {
+    if (!context || !context->objects) return false;
+
+    auto enemies = context->objects->GetEnemies();
+    for (auto* enemy : enemies) {
+        if (dynamic_cast<Boss*>(enemy) && enemy->IsAlive()) {
+            return false;
+        }
+    }
+
+    // 检查队列中是否还有 Boss 还未出场
+    auto queueCopy = spawnQueue;
+    while (!queueCopy.empty()) {
+        if (queueCopy.front().type == EnemyType::Boss) {
+            return false;
+        }
+        queueCopy.pop();
+    }
+
+    return true;
+}

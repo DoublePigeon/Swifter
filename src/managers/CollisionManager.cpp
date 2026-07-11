@@ -1,35 +1,109 @@
-#pragma once
+#include "managers/CollisionManager.h"
+#include "managers/ObjectManager.h"
+#include "core/GameContext.h"
 
-#include <SFML/System/Vector2.hpp>
+#include "objects/Player.h"
+#include "objects/Bullet.h"
+#include "objects/Enemy.h"
+#include "objects/Item.h"
 
-struct GameContext;
+#include <cmath>
 
 // ===========================================================================
 // CollisionManager：集中处理本帧所有碰撞判定。
-// 采用圆形判定，按“阵营”配对：
-//   玩家子弹 vs 敌机
-//   敌方子弹 vs 玩家
-//   敌机      vs 玩家
-//   道具      vs 玩家
-// 命中后通过对象自身的方法造成伤害/拾取，碰撞结果由各对象的 Destroy/标志驱动。
 // ===========================================================================
 
-class CollisionManager {
-public:
-    CollisionManager();
-    void SetContext(GameContext* ctx);
+CollisionManager::CollisionManager() = default;
 
-    void CheckCollisions(); // 每帧调用，解析所有碰撞
+void CollisionManager::SetContext(GameContext* ctx) {
+    context = ctx;
+}
 
-    // 静态工具：两圆是否相交
-    static bool CircleHit(const sf::Vector2f& a, float ra,
-                          const sf::Vector2f& b, float rb);
+bool CollisionManager::CircleHit(const sf::Vector2f& a, float ra,
+                                  const sf::Vector2f& b, float rb) {
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+    float distSq = dx * dx + dy * dy;
+    float radSum = ra + rb;
+    return distSq <= radSum * radSum;
+}
 
-private:
-    GameContext* context = nullptr;
+void CollisionManager::CheckCollisions() {
+    if (!context || !context->objects) return;
 
-    void ResolvePlayerBulletsVsEnemies();
-    void ResolveEnemyBulletsVsPlayer();
-    void ResolveEnemiesVsPlayer();
-    void ResolveItemsVsPlayer();
-};
+    ResolvePlayerBulletsVsEnemies();
+    ResolveEnemyBulletsVsPlayer();
+    ResolveEnemiesVsPlayer();
+    ResolveItemsVsPlayer();
+}
+
+void CollisionManager::ResolvePlayerBulletsVsEnemies() {
+    auto bullets = context->objects->GetPlayerBullets();
+    auto enemies = context->objects->GetEnemies();
+
+    for (auto* bullet : bullets) {
+        if (bullet->IsDead()) continue;
+
+        for (auto* enemy : enemies) {
+            if (enemy->IsDead()) continue;
+
+            if (CircleHit(bullet->GetPosition(), bullet->GetRadius(),
+                          enemy->GetPosition(), enemy->GetRadius())) {
+                enemy->TakeDamage(bullet->GetDamage());
+                bullet->Destroy();
+                break;
+            }
+        }
+    }
+}
+
+void CollisionManager::ResolveEnemyBulletsVsPlayer() {
+    auto* player = context->objects->GetPlayer();
+    if (!player || player->IsDead() || player->IsInvincible()) return;
+
+    auto bullets = context->objects->GetEnemyBullets();
+
+    for (auto* bullet : bullets) {
+        if (bullet->IsDead()) continue;
+
+        if (CircleHit(bullet->GetPosition(), bullet->GetRadius(),
+                      player->GetPosition(), player->GetRadius())) {
+            player->TakeDamage(bullet->GetDamage());
+            bullet->Destroy();
+        }
+    }
+}
+
+void CollisionManager::ResolveEnemiesVsPlayer() {
+    auto* player = context->objects->GetPlayer();
+    if (!player || player->IsDead() || player->IsInvincible()) return;
+
+    auto enemies = context->objects->GetEnemies();
+
+    for (auto* enemy : enemies) {
+        if (enemy->IsDead()) continue;
+
+        if (CircleHit(enemy->GetPosition(), enemy->GetRadius(),
+                      player->GetPosition(), player->GetRadius())) {
+            player->TakeDamage(1);
+            enemy->TakeDamage(1);
+        }
+    }
+}
+
+void CollisionManager::ResolveItemsVsPlayer() {
+    auto* player = context->objects->GetPlayer();
+    if (!player || player->IsDead()) return;
+
+    auto items = context->objects->GetObjectsByType<Item>();
+
+    for (auto* item : items) {
+        if (item->IsDead()) continue;
+
+        if (CircleHit(item->GetPosition(), item->GetRadius(),
+                      player->GetPosition(), player->GetRadius())) {
+            item->ApplyToPlayer(player);
+            item->Destroy();
+        }
+    }
+}

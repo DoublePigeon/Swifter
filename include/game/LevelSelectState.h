@@ -14,6 +14,8 @@
 
 class LevelSelectState : public GameState {
 public:
+    LevelSelectState();
+
     StateID GetID() const override { return StateID::LevelSelect; }
 
     void OnEnter(GameContext* ctx) override;

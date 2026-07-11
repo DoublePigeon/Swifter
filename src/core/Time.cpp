@@ -1,32 +1,51 @@
-#include <core/Time.h>
+#include "core/Time.h"
+#include <SFML/System/Time.hpp>
 
 // ===========================================================================
 // 时间管理：提供 deltaTime、总时间、全局时间缩放以及子弹时间因子。
 // 子弹时间因子只作用于敌方子弹（完美闪避触发），不影响自机。
 // ===========================================================================
 
-class Time {
-public:
-    static Time& Instance();
+Time& Time::Instance() {
+    static Time instance;
+    return instance;
+}
 
-    void Reset();
-    void Update(); // 每帧调用，刷新 deltaTime / totalTime
+Time::Time() = default;
 
-    float DeltaTime() const;     // 本帧增量（秒）
-    float TotalTime() const;     // 自启动以来总时间（秒）
+void Time::Reset() {
+    deltaTime = 0.0f;
+    totalTime = 0.0f;
+    timeScale = 1.0f;
+    bulletTimeFactor = 1.0f;
+    clock.restart();
+}
 
-    float TimeScale() const;             // 全局时间缩放（暂停用 0）
-    void  SetTimeScale(float scale);
+void Time::Update() {
+    deltaTime = clock.restart().asSeconds() * timeScale;
+    totalTime += deltaTime;
+}
 
-    float BulletTimeFactor() const;      // 敌弹专用时间因子（1.0 正常）
-    void  SetBulletTimeFactor(float f);  // 完美闪避后设为 < 1
+float Time::DeltaTime() const {
+    return deltaTime;
+}
 
-private:
-    Time();
+float Time::TotalTime() const {
+    return totalTime;
+}
 
-    sf::Clock clock;
-    float deltaTime = 0.0f;
-    float totalTime = 0.0f;
-    float timeScale = 1.0f;
-    float bulletTimeFactor = 1.0f;
-};
+float Time::TimeScale() const {
+    return timeScale;
+}
+
+void Time::SetTimeScale(float scale) {
+    timeScale = scale;
+}
+
+float Time::BulletTimeFactor() const {
+    return bulletTimeFactor;
+}
+
+void Time::SetBulletTimeFactor(float f) {
+    bulletTimeFactor = f;
+}
