@@ -26,9 +26,11 @@ Boss::Boss() {
 }
 
 void Boss::OnInit() {
-    sprite.setTexture(context->resources->GetTexture("assets/images/boss.png"));
+    sprite.setTexture(context->resources->GetTexture("assets/images/boss.png"), true);
     auto texSize = sprite.getTexture().getSize();
     sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
+    float scale = config::SPRITE_BOSS_W / static_cast<float>(texSize.x);
+    sprite.setScale({scale, scale});
 
     // 初始位置：屏幕上方外侧
     position = {config::WINDOW_WIDTH / 2.0f, -80.0f};

@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include <SFML/Graphics/Sprite.hpp>
+
 #include "game/GameState.h"
 #include "managers/ObjectManager.h"
 #include "managers/CollisionManager.h"
@@ -49,4 +51,6 @@ private:
 
     Player* player = nullptr; // 由 objects 持有
     bool    started = false;
+
+    sf::Sprite backgroundSprite; // 关卡背景
 };

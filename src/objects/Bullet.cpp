@@ -21,20 +21,24 @@ void Bullet::OnInit() {
     // 根据阵营和变体设置纹理
     if (faction == Faction::Player) {
         if (variant) {
-            sprite.setTexture(context->resources->GetTexture("assets/images/big_bullet.png"));
+            sprite.setTexture(context->resources->GetTexture("assets/images/big_bullet.png"), true);
             radius = 12.0f;
         } else {
-            sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"));
+            sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"), true);
             radius = 6.0f;
         }
     } else {
-        sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"));
+        sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"), true);
         sprite.setColor(sf::Color(255, 100, 100)); // 敌弹偏红
         radius = 6.0f;
     }
     // 设置原点为中心
     auto texSize = sprite.getTexture().getSize();
     sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
+    // 缩放
+    float targetW = variant ? config::SPRITE_BULLET_BIG_W : config::SPRITE_BULLET_SMALL_W;
+    float scale = targetW / static_cast<float>(texSize.x);
+    sprite.setScale({scale, scale});
 }
 
 void Bullet::OnUpdate(float dt) {
@@ -103,7 +107,10 @@ void Bullet::Deflect() {
     speed = config::PLAYER_BULLET_SPEED;
     velocity = math::Normalize(velocity) * speed;
     // 更新纹理为玩家子弹
-    sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"));
+    sprite.setTexture(context->resources->GetTexture("assets/images/small_bullet.png"), true);
     sprite.setColor(sf::Color::White);
+    auto texSize = sprite.getTexture().getSize();
+    float scale = config::SPRITE_BULLET_SMALL_W / static_cast<float>(texSize.x);
+    sprite.setScale({scale, scale});
 }
 

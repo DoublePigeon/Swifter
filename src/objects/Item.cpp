@@ -22,31 +22,33 @@ void Item::OnInit() {
     // 根据类型设置纹理
     switch (type) {
         case ItemType::Heal:
-            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"));
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"), true);
             break;
         case ItemType::Bomb:
-            sprite.setTexture(context->resources->GetTexture("assets/images/item_bomb.png"));
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_bomb.png"), true);
             break;
         case ItemType::PowerUp:
             // PowerUp 使用 heal 纹理但染色
-            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"));
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"), true);
             sprite.setColor(sf::Color(255, 200, 50));
             break;
         case ItemType::ScoreBonus:
-            sprite.setTexture(context->resources->GetTexture("assets/images/item_bomb.png"));
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_bomb.png"), true);
             sprite.setColor(sf::Color(255, 255, 100));
             break;
         case ItemType::Shield:
-            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"));
+            sprite.setTexture(context->resources->GetTexture("assets/images/item_heal.png"), true);
             sprite.setColor(sf::Color(100, 150, 255));
             break;
         default:
-            sprite.setTexture(context->resources->GetTexture("assets/images/dummy.png"));
+            sprite.setTexture(context->resources->GetTexture("assets/images/dummy.png"), true);
             break;
     }
 
     auto texSize = sprite.getTexture().getSize();
     sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
+    float scale = config::SPRITE_ITEM_W / static_cast<float>(texSize.x);
+    sprite.setScale({scale, scale});
 
     // 缓慢下落
     velocity = {0.0f, 60.0f};

@@ -4,6 +4,7 @@
 #include "game/StateMachine.h"
 #include "core/GameContext.h"
 #include "core/Config.h"
+#include "core/ResourceManager.h"
 #include "core/Time.h"
 #include "core/Input.h"
 #include "managers/ObjectManager.h"
@@ -29,8 +30,16 @@
 // PlayState：实际游玩状态。
 // ===========================================================================
 
+namespace {
+    sf::Texture& GetDummyTexture() {
+        static sf::Texture tex([]() { sf::Texture t; static_cast<void>(t.resize({ 1u, 1u })); return t; }());
+        return tex;
+    }
+}
+
 PlayState::PlayState(const std::string& levelFile)
-    : levelFile(levelFile) {
+    : levelFile(levelFile)
+    , backgroundSprite(GetDummyTexture()) {
 }
 
 PlayState::~PlayState() = default;
@@ -38,6 +47,11 @@ PlayState::~PlayState() = default;
 void PlayState::OnEnter(GameContext* ctx) {
     context = ctx;
     SetupLocalContext(ctx);
+
+    // 每局开始时重置分数为 0，避免跨局累加
+    if (ctx->score) {
+        ctx->score->ResetScore();
+    }
 
     player = objects.SpawnPlayer({
         config::WINDOW_WIDTH / 2.0f,
@@ -49,21 +63,29 @@ void PlayState::OnEnter(GameContext* ctx) {
 
     // 播放关卡对应 BGM
     {
-        // 从关卡文件名推断 BGM 编号（如 level1.txt -> bgm_level1.ogg）
+        // 从关卡文件名推断 BGM 编号（如 level1.txt -> bgm_level1.wav）
         std::string bgmPath = levelFile;
         // 提取关卡编号
-        size_t pos = bgmPath.find("level");
+        size_t pos = bgmPath.rfind("level");
         if (pos != std::string::npos) {
             std::string numPart = bgmPath.substr(pos + 5); // "1.txt" 等
             size_t dotPos = numPart.find('.');
             std::string levelNum = (dotPos != std::string::npos) ? numPart.substr(0, dotPos) : numPart;
-            AudioManager::Instance().PlayMusic("assets/music/bgm_level" + levelNum + ".ogg", true);
+            AudioManager::Instance().PlayMusic("assets/music/bgm_level" + levelNum + ".wav", true);
         }
     }
 
     Time::Instance().Reset();
     Time::Instance().SetTimeScale(1.0f);
     Time::Instance().SetBulletTimeFactor(1.0f);
+
+    // 加载关卡背景（resetRect=true 重置纹理矩形，避免沿用 dummy 纹理的 1x1 区域）
+    backgroundSprite.setTexture(ctx->resources->GetTexture("assets/images/background.png"), true);
+    auto bgTexSize = backgroundSprite.getTexture().getSize();
+    backgroundSprite.setScale({
+        static_cast<float>(config::WINDOW_WIDTH) / static_cast<float>(bgTexSize.x),
+        static_cast<float>(config::WINDOW_HEIGHT) / static_cast<float>(bgTexSize.y)
+    });
 
     started = true;
 }
@@ -83,13 +105,10 @@ void PlayState::OnUpdate(float dt) {
         return;
     }
 
-    Time::Instance().Update();
-    float delta = Time::Instance().DeltaTime();
-
-    level.Update(delta);
-    objects.UpdateAll(delta);
+    level.Update(dt);
+    objects.UpdateAll(dt);
     collision.CheckCollisions();
-    ui.Update(delta);
+    ui.Update(dt);
     AudioManager::Instance().Update();
 
     CheckEndConditions();
@@ -97,7 +116,7 @@ void PlayState::OnUpdate(float dt) {
 
 void PlayState::OnRender(sf::RenderTarget& target) {
     if (!started) return;
-    target.clear(sf::Color::Black);
+    target.draw(backgroundSprite);
     objects.RenderAll(target);
     ui.Render(target);
 }

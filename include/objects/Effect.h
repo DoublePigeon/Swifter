@@ -31,4 +31,5 @@ private:
     std::string effectName;
     float duration = 0.5f;
     float elapsed = 0.0f;
+    float baseScale = 1.0f; // 基础缩放（动画在此之上叠加）
 };

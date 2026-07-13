@@ -18,6 +18,15 @@ void StateMachine::ChangeState(std::unique_ptr<GameState> state) {
     states.top()->OnEnter(context);
 }
 
+void StateMachine::ClearAndSetState(std::unique_ptr<GameState> state) {
+    while (!states.empty()) {
+        states.top()->OnExit();
+        states.pop();
+    }
+    states.push(std::move(state));
+    states.top()->OnEnter(context);
+}
+
 void StateMachine::PushState(std::unique_ptr<GameState> state) {
     states.push(std::move(state));
     states.top()->OnEnter(context);

@@ -84,7 +84,7 @@ void MenuState::OnUpdate(float dt) {
                 std::make_unique<LevelSelectState>());
             break;
         case 2: // 退出
-            context->window->close();
+            context->quitRequested = true;
             break;
         }
     }

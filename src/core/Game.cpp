@@ -37,13 +37,13 @@ bool Game::Init(int width, int height, const std::string& title) {
 
     // 5. 注册所有音效别名 -> 文件路径
     auto& audio = AudioManager::Instance();
-    audio.RegisterSfx("shoot_small", "assets/sounds/shoot_small.ogg");
-    audio.RegisterSfx("shoot_big",   "assets/sounds/shoot_big.ogg");
-    audio.RegisterSfx("evade",       "assets/sounds/evade.ogg");
-    audio.RegisterSfx("parry",       "assets/sounds/parry.ogg");
-    audio.RegisterSfx("plane_crash", "assets/sounds/plane_crash.ogg");
-    audio.RegisterSfx("plane_hit_by","assets/sounds/plane_hit_by.ogg");
-    audio.RegisterSfx("dummy",       "assets/sounds/dummy.ogg");
+    audio.RegisterSfx("shoot_small", "assets/sounds/shoot_small.wav");
+    audio.RegisterSfx("shoot_big",   "assets/sounds/shoot_big.wav");
+    audio.RegisterSfx("evade",       "assets/sounds/evade.wav");
+    audio.RegisterSfx("parry",       "assets/sounds/parry.wav");
+    audio.RegisterSfx("plane_crash", "assets/sounds/plane_crash.wav");
+    audio.RegisterSfx("plane_hit_by","assets/sounds/plane_hit_by.wav");
+    audio.RegisterSfx("dummy",       "assets/sounds/dummy.wav");
 
     // 6. 启动菜单
     stateMachine->ChangeState(std::make_unique<MenuState>());
@@ -65,6 +65,7 @@ void Game::Run() {
 }
 
 void Game::Quit() {
+    AudioManager::Instance().StopMusic();
     running = false;
 }
 
@@ -83,6 +84,10 @@ void Game::HandleEvents() {
 void Game::Update(float dt) {
     stateMachine->Update(dt);
     Input::Instance().Update(); // 清理单帧按键状态
+
+    if (context.quitRequested) {
+        Quit();
+    }
 }
 
 void Game::Render() {

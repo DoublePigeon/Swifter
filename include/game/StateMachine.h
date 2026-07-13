@@ -20,6 +20,7 @@ public:
     void SetContext(GameContext* ctx);
 
     void ChangeState(std::unique_ptr<GameState> state); // 替换栈顶
+    void ClearAndSetState(std::unique_ptr<GameState> state); // 清空整个栈并设置新状态
     void PushState(std::unique_ptr<GameState> state);    // 叠加（暂停）
     void PopState();                                     // 弹出叠加层
 

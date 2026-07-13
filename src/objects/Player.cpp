@@ -29,9 +29,11 @@ Player::Player() {
 }
 
 void Player::OnInit() {
-    sprite.setTexture(context->resources->GetTexture("assets/images/self_plane.png"));
+    sprite.setTexture(context->resources->GetTexture("assets/images/self_plane.png"), true);
     auto texSize = sprite.getTexture().getSize();
     sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
+    float scale = config::SPRITE_PLAYER_W / static_cast<float>(texSize.x);
+    sprite.setScale({scale, scale});
     position = {config::WINDOW_WIDTH / 2.0f, config::WINDOW_HEIGHT - 80.0f};
 }
 

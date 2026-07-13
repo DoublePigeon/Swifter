@@ -11,8 +11,8 @@ class ScoreManager {
 public:
     ScoreManager();
 
-    void LoadHighScore(const std::string& filename = "score.dat");
-    void SaveHighScore(const std::string& filename = "score.dat");
+    void LoadHighScore(const std::string& filename = "assets/data/highest_score.txt");
+    void SaveHighScore(const std::string& filename = "assets/data/highest_score.txt");
 
     int  GetScore() const { return score; }
     int  GetHighScore() const { return highScore; }

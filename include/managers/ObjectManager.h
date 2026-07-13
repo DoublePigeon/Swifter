@@ -39,6 +39,9 @@ public:
     // 通用添加（对象会被调用 OnInit）
     void AddObject(std::shared_ptr<GameObject> obj);
 
+    // 将 pending 队列中的对象合并到主列表（每帧在迭代结束后调用）
+    void FlushPending();
+
     // —— 生命周期 ——
     void UpdateAll(float dt);
     void RenderAll(sf::RenderTarget& target);
@@ -47,6 +50,7 @@ public:
 
     // —— 查询 ——
     const std::vector<std::shared_ptr<GameObject>>& GetObjects() const { return objects; }
+    size_t GetObjectCount() const { return objects.size(); }
 
     std::vector<Bullet*> GetEnemyBullets() const;   // 给格挡/闪避检测用
     std::vector<Bullet*> GetPlayerBullets() const;
@@ -66,5 +70,7 @@ public:
 private:
     GameContext* context = nullptr;
     std::vector<std::shared_ptr<GameObject>> objects;
+    std::vector<std::shared_ptr<GameObject>> pendingObjects; // 迭代期间暂存新生成的对象
+    bool isUpdating = false;   // 是否正在遍历 objects（用于延迟生成）
     Player* playerRef = nullptr; // 便捷弱引用（对象仍由 objects 持有）
 };

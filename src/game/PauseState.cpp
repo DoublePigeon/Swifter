@@ -62,8 +62,8 @@ void PauseState::OnUpdate(float dt) {
             // 继续游戏 → 弹出暂停层
             context->stateMachine->PopState();
         } else {
-            // 返回主菜单
-            context->stateMachine->ChangeState(std::make_unique<MenuState>());
+            // 返回主菜单 → 清空整个状态栈（确保 PlayState::OnExit 被调用以停止音乐）
+            context->stateMachine->ClearAndSetState(std::make_unique<MenuState>());
         }
     }
 

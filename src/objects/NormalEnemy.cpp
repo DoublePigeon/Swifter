@@ -18,9 +18,11 @@ NormalEnemy::NormalEnemy() {
 }
 
 void NormalEnemy::OnInit() {
-    sprite.setTexture(context->resources->GetTexture("assets/images/enemy1.png"));
+    sprite.setTexture(context->resources->GetTexture("assets/images/enemy1.png"), true);
     auto texSize = sprite.getTexture().getSize();
     sprite.setOrigin({static_cast<float>(texSize.x) / 2.0f, static_cast<float>(texSize.y) / 2.0f});
+    float scale = config::SPRITE_ENEMY_W / static_cast<float>(texSize.x);
+    sprite.setScale({scale, scale});
 
     velocity = sf::Vector2f(0.0f, config::NORMAL_ENEMY_SPEED);
 }

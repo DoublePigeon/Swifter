@@ -26,6 +26,7 @@ struct GameContext {
     AudioManager*     audio        = nullptr;
     ScoreManager*     score        = nullptr;
     StateMachine*     stateMachine = nullptr;
+    bool              quitRequested = false;
 
     // —— 局内（由 PlayState 持有）——
     ObjectManager*    objects   = nullptr;

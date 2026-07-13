@@ -30,7 +30,21 @@ void ObjectManager::AddObject(std::shared_ptr<GameObject> obj) {
     if (!obj) return;
     obj->SetContext(context);
     obj->OnInit();
-    objects.push_back(obj);
+
+    // 如果正在遍历 objects，则暂存到 pending 队列，避免 vector reallocation 导致迭代器失效崩溃
+    if (isUpdating) {
+        pendingObjects.push_back(std::move(obj));
+    } else {
+        objects.push_back(std::move(obj));
+    }
+}
+
+void ObjectManager::FlushPending() {
+    if (pendingObjects.empty()) return;
+    for (auto& obj : pendingObjects) {
+        objects.push_back(std::move(obj));
+    }
+    pendingObjects.clear();
 }
 
 // —— 生成便捷接口 ——
@@ -99,6 +113,7 @@ Item* ObjectManager::SpawnItem(ItemType type, const sf::Vector2f& pos) {
 Effect* ObjectManager::SpawnEffect(const sf::Vector2f& pos, const std::string& effectName,
                                     float duration) {
     auto effect = std::make_shared<Effect>();
+    effect->SetContext(context); // 必须在 Setup 前设置 context
     effect->SetPosition(pos);
     effect->Setup(effectName, duration);
     auto* raw = effect.get();
@@ -109,11 +124,17 @@ Effect* ObjectManager::SpawnEffect(const sf::Vector2f& pos, const std::string& e
 // —— 生命周期 ——
 
 void ObjectManager::UpdateAll(float dt) {
+    isUpdating = true;
     for (auto& obj : objects) {
         if (obj->IsActive()) {
             obj->OnUpdate(dt);
         }
     }
+    isUpdating = false;
+
+    // 将迭代期间生成的对象合并到主列表
+    FlushPending();
+
     ClearDead();
 }
 

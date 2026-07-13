@@ -11,7 +11,6 @@ const sf::Texture& ResourceManager::GetTexture(const std::string& path) {
 
     auto tex = std::make_unique<sf::Texture>();
     if (!tex->loadFromFile(path)) {
-        // 加载失败：创建 1x1 占位纹理
         tex->resize({ 1u, 1u });
     }
     auto& ref = *tex;
