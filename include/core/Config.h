@@ -37,11 +37,11 @@ namespace config {
     constexpr float NORMAL_ENEMY_SPEED = 140.0f;
 
     // ---- 精灵显示尺寸（贴图分辨率很大，需要缩放）----
-    constexpr float SPRITE_PLAYER_W = 48.0f;       // 自机显示宽度
-    constexpr float SPRITE_BULLET_SMALL_W = 14.0f; // 小子弹显示宽度
-    constexpr float SPRITE_BULLET_BIG_W = 24.0f;   // 大子弹显示宽度
-    constexpr float SPRITE_ENEMY_W = 44.0f;        // 普通敌机显示宽度
-    constexpr float SPRITE_BOSS_W = 80.0f;         // Boss 显示宽度
+    constexpr float SPRITE_PLAYER_W = 52.0f;       // 自机显示宽度
+    constexpr float SPRITE_BULLET_SMALL_W = 6.0f; // 小子弹显示宽度
+    constexpr float SPRITE_BULLET_BIG_W = 8.0f;   // 大子弹显示宽度
+    constexpr float SPRITE_ENEMY_W = 55.0f;        // 普通敌机显示宽度
+    constexpr float SPRITE_BOSS_W = 120.0f;         // Boss 显示宽度
     constexpr float SPRITE_ITEM_W = 30.0f;         // 道具显示宽度
     constexpr float SPRITE_EFFECT_W = 60.0f;       // 特效显示宽度
 
