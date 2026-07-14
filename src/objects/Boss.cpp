@@ -6,6 +6,8 @@
 #include "core/Time.h"
 #include "core/Random.h"
 #include "managers/ObjectManager.h"
+#include "managers/AudioManager.h"
+#include "managers/ScoreManager.h"
 #include "objects/Player.h"
 #include "objects/Bullet.h"
 
@@ -40,6 +42,56 @@ void Boss::OnInit() {
 void Boss::OnUpdate(float dt) {
     if (!active) return;
 
+    // —— 死亡动画 ——
+    if (dying) {
+        deathTimer += dt;
+
+        // 定时触发爆炸特效与音效
+        deathExplosionTimer += dt;
+        if (deathExplosionTimer >= DEATH_EXPLOSION_INTERVAL && deathExplosionCount < MAX_DEATH_EXPLOSIONS) {
+            deathExplosionTimer = 0.0f;
+            deathExplosionCount++;
+
+            // 在 Boss 周围随机偏移位置生成爆炸特效
+            float offsetX = rng::Range(-40.0f, 40.0f);
+            float offsetY = rng::Range(-30.0f, 30.0f);
+            if (context && context->objects) {
+                context->objects->SpawnEffect(
+                    position + sf::Vector2f(offsetX, offsetY),
+                    "explosion", 1.0f);
+            }
+            AudioManager::Instance().PlaySfx("plane_crash");
+        }
+
+        // 死亡动画结束：真正销毁
+        if (deathTimer >= DEATH_DURATION) {
+            // 最终大爆炸
+            if (context && context->objects) {
+                context->objects->SpawnEffect(position, "explosion", 1.2f);
+            }
+            AudioManager::Instance().PlaySfx("plane_crash");
+
+            // 掉落道具
+            if (dropItem != ItemType::None && context && context->objects) {
+                context->objects->SpawnItem(dropItem, position);
+            }
+
+            // 给分
+            if (context && context->score) {
+                context->score->AddScore(scoreValue);
+            }
+
+            Destroy();
+            return;
+        }
+
+        // 死亡动画期间 Boss 逐渐下沉并闪烁
+        position.y += 25.0f * dt;
+        sprite.setPosition(position);
+        sprite.setRotation(sf::degrees(rotation));
+        return;
+    }
+
     if (!entered) {
         UpdateEntry(dt);
     } else {
@@ -69,6 +121,23 @@ void Boss::OnUpdate(float dt) {
 
 void Boss::OnRender(sf::RenderTarget& target) {
     if (!active) return;
+
+    // 死亡动画：剧烈闪烁 + 红色调
+    if (dying) {
+        float progress = deathTimer / DEATH_DURATION;
+        // 越接近死亡闪烁越快
+        float blinkRate = 4.0f + progress * 10.0f;
+        if (static_cast<int>(deathTimer * blinkRate) % 2 == 0) {
+            // 逐渐变红变暗
+            sf::Color tint(255,
+                           static_cast<std::uint8_t>(255 * (1.0f - progress)),
+                           static_cast<std::uint8_t>(255 * (1.0f - progress)),
+                           static_cast<std::uint8_t>(255 * (1.0f - progress * 0.6f)));
+            sprite.setColor(tint);
+            target.draw(sprite);
+        }
+        return;
+    }
 
     // 受伤闪烁效果
     if (static_cast<int>(fireTimer * 10.0f) % 2 == 0) {
@@ -207,5 +276,34 @@ float Boss::GetPhaseHealthRatio() const {
     float hpPerPhase = static_cast<float>(maxHealth) / static_cast<float>(maxPhases);
     float hpInPhase = static_cast<float>(health) - hpPerPhase * static_cast<float>(phase - 1);
     return hpInPhase / hpPerPhase;
+}
+
+void Boss::TakeDamage(int amount) {
+    // 若已在死亡动画中，不再受伤害
+    if (dying) return;
+
+    health -= amount;
+    if (health <= 0) {
+        health = 0;
+        // 进入死亡动画，不立即销毁
+        dying = true;
+        deathTimer = 0.0f;
+        deathExplosionCount = 0;
+        deathExplosionTimer = 0.0f;
+
+        // 首次爆炸
+        if (context && context->objects) {
+            context->objects->SpawnEffect(position, "explosion", 1.0f);
+        }
+        AudioManager::Instance().PlaySfx("plane_crash");
+        deathExplosionCount = 1;
+    } else {
+        // 受伤音效
+        AudioManager::Instance().PlaySfx("plane_hit_by");
+    }
+}
+
+void Boss::OnDestroy() {
+    // 清理工作（如有需要）
 }
 

@@ -22,7 +22,13 @@ public:
     void OnInit() override;
     void OnUpdate(float dt) override;
     void OnRender(sf::RenderTarget& target) override;
-    void OnDestroy() override {}
+    void OnDestroy() override;
+
+    // —— 生命（覆盖基类，延迟销毁）——
+    void TakeDamage(int amount) override;
+
+    // —— 死亡动画状态 ——
+    bool IsDying() const { return dying; }
 
     // —— 阶段 ——
     int   GetPhase() const { return phase; }
@@ -53,4 +59,13 @@ private:
     float entryProgress = 0.0f;
     sf::Vector2f targetPos;         // 巡游目标点
     float moveDir = 1.0f;           // 巡游方向
+
+    // —— 死亡动画 ——
+    bool  dying = false;
+    float deathTimer = 0.0f;
+    static constexpr float DEATH_DURATION = 3.0f;
+    int   deathExplosionCount = 0;
+    float deathExplosionTimer = 0.0f;
+    static constexpr float DEATH_EXPLOSION_INTERVAL = 0.7f;
+    static constexpr int   MAX_DEATH_EXPLOSIONS = 4;
 };

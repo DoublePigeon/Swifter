@@ -28,7 +28,7 @@ public:
     virtual void Fire() {}
 
     // —— 生命 ——
-    void TakeDamage(int amount);
+    virtual void TakeDamage(int amount);
     int  GetHealth() const { return health; }
     int  GetMaxHealth() const { return maxHealth; }
     bool IsAlive() const { return health > 0; }

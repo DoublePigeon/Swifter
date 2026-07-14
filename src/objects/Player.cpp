@@ -363,8 +363,10 @@ void Player::TakeDamage(int amount) {
 
     health -= amount;
     health = math::Clamp(health, 0, maxHealth);
+    
 
     if (amount > 0 && health > 0) {
+        AudioManager::Instance().PlaySfx("plane_hit_by");
         invincibleTimer = 1.0f;
         if (powerLevel > 1) {
             powerLevel--;
@@ -372,6 +374,7 @@ void Player::TakeDamage(int amount) {
     }
 
     if (health <= 0) {
+        AudioManager::Instance().PlaySfx("plane_crash");
         health = 0;
         Destroy();
     }

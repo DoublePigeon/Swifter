@@ -3,6 +3,7 @@
 #include "managers/ObjectManager.h"
 #include "core/GameContext.h"
 #include "objects/Boss.h"
+#include "objects/Enemy.h"
 
 // ===========================================================================
 // LevelManager：按时间轴驱动敌机生成。
@@ -54,7 +55,7 @@ void LevelManager::Update(float dt) {
         spawnQueue.pop();
     }
 
-    // 检查是否完成：队列空且场上无敌机
+    // 检查是否完成：队列空且场上无敌机（Boss 死亡动画播完才会被移除）
     if (spawnQueue.empty() && context && context->objects) {
         auto enemies = context->objects->GetEnemies();
         if (enemies.empty()) {
