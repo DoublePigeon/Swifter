@@ -5,6 +5,7 @@ cmake-build-*/
 *.o
 *.obj
 *.exe
+*.zip
 CMakeFiles/
 CMakeCache.txt/
 
