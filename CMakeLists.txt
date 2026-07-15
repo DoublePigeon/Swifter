@@ -49,6 +49,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     SFML::System
 )
 
+target_link_options(${PROJECT_NAME} PRIVATE
+    -static-libgcc
+    -static-libstdc++
+    -static
+)
+
 # 设置调试时的工作目录为项目根目录 (以便正确读取 assets/ 下的图片和音频)
 set_target_properties(${PROJECT_NAME} PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

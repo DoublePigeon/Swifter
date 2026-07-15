@@ -4,4 +4,19 @@
 3.0   Normal    300   -50   None
 3.0   Normal    500   -50   None
 5.0   Shooter   400   -50   PowerUp
-8.0   Boss      400   -120  None  Spread
+9.0   Shooter   500   -50   None
+9.0   Shooter   300   -50   None
+10.0  Normal    400   -50   None
+10.5  Normal    450   -50   None
+10.5  Normal    350   -50   None
+11.0  Normal    500   -50   None
+11.0  Normal    300   -50   None
+11.0  Shooter   400   -50   Heal
+15.0  Shooter   300   -50   None
+15.0  Shooter   500   -50   None
+15.5  Normal    200   -50   None
+15.5  Normal    600   -50   None
+16.0  Normal    400   -50   Heal
+16.5  Normal    400   -50   PowerUp
+20.0   Boss     400   -120  None  Spread
+25.0  Normal    400   -50   Heal 
